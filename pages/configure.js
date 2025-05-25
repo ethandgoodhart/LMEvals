@@ -65,6 +65,16 @@ export default function Configure() {
   ]);
 
   useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/signup');
+      }
+    }
+    checkAuth();
+  }, [router]);
+
+  useEffect(() => {
     async function maybeLoadEval() {
       const evalIdParam = router.query.eval_id;
       if (evalIdParam) {

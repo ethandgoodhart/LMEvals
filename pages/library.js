@@ -33,7 +33,7 @@ export default function Library() {
     async function checkAuth() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.push('/login');
+        router.push('/signup');
       }
     }
     checkAuth();

@@ -4,6 +4,7 @@ import Head from 'next/head';
 import { createClient } from '@supabase/supabase-js';
 import { FcGoogle } from 'react-icons/fc';
 import CustomNavbar from '../components/CustomNavbar';
+import Cookies from 'js-cookie';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -32,7 +33,11 @@ export default function Signup() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+    const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+    if (data?.session) {
+      Cookies.set('sb-access-token', data.session.access_token, { path: '/' });
+      Cookies.set('sb-refresh-token', data.session.refresh_token, { path: '/' });
+    }
     if (error) setError(error.message);
     setLoading(false);
   };
