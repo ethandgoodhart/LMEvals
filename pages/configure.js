@@ -5,6 +5,11 @@ import CustomNavbar from "../components/CustomNavbar";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function Configure() {
   const router = useRouter();
@@ -13,69 +18,199 @@ export default function Configure() {
   const [evalPrompt, setEvalPrompt] = useState('');
   const promptRef = useRef(null);
   const evalPromptRef = useRef(null);
+  const resultsRef = useRef(null);
+  const hasScrolledRef = useRef(false);
+  const [title, setTitle] = useState('');
+  const titleInputRef = useRef(null);
+  const [evalId, setEvalId] = useState(null);
+  const [titleUpdateStatus, setTitleUpdateStatus] = useState(null); // 'success' | 'error' | null
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalCompletions, setModalCompletions] = useState([]);
+  const [modalModel, setModalModel] = useState("");
 
   const [results, setResults] = useState([
     {
-      model: "gpt-4o",
+      model: "openai/gpt-4o-mini",
       icon: "https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg",
-      prompt: "How many r's in Strawberry?",
       trials: 0,
       score: 0
     },
     {
-      model: "gemini-2.0-flash",
+      model: "google/gemini-2.5-flash-preview-05-20",
       icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png",
-      prompt: "How many r's in Strawberry?",
       trials: 0,
       score: 0
     },
     {
-      model: "claude-3.5-sonnet",
+      model: "anthropic/claude-3.5-haiku",
       icon: "https://openrouter.ai/images/icons/Anthropic.svg",
-      prompt: "How many r's in Strawberry?",
       trials: 0,
       score: 0
     },
     {
-      model: "grok-3",
+      model: "x-ai/grok-3-mini-beta",
       icon: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s",
-      prompt: "How many r's in Strawberry?",
       trials: 0,
       score: 0
     },
     {
-      model: "llama-3.1-8b-instruct",
+      model: "meta-llama/llama-3.3-70b-instruct",
       icon: "https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp",
-      prompt: "How many r's in Strawberry?",
       trials: 0,
       score: 0
-    },
-    {
-      model: "deepseek-r1",
-      icon: "https://logosandtypes.com/wp-content/uploads/2025/02/Deepseek.png",
-      prompt: "How many r's in Strawberry?",
-      trials: 0,
-      score: 0
-    },
+    }
   ]);
 
   useEffect(() => {
-    const prompt = router.query.prompt;
-    if (prompt) {
-      setPrompt(prompt);
+    async function maybeLoadEval() {
+      const evalIdParam = router.query.eval_id;
+      if (evalIdParam) {
+        setEvalId(evalIdParam);
+        // Fetch eval row
+        const { data: evalRow, error: evalError } = await supabase.from('evals').select('*').eq('id', evalIdParam).single();
+        if (!evalError && evalRow) {
+          setPrompt(evalRow.prompt || '');
+          setEvalPrompt(evalRow.eval_prompt || '');
+          setTitle(evalRow.title || '');
+          // Fetch results
+          const { data: evalResults, error: resultsError } = await supabase.from('eval_results').select('*').eq('eval_id', evalIdParam);
+          if (!resultsError && evalResults) {
+            // Map results to the right format for the table
+            const modelIconsMap = {
+              'openai/gpt-4o-mini': 'https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg',
+              'google/gemini-2.5-flash-preview-05-20': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png',
+              'anthropic/claude-3.5-haiku': 'https://openrouter.ai/images/icons/Anthropic.svg',
+              'x-ai/grok-3-mini-beta': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s',
+              'meta-llama/llama-3.3-70b-instruct': 'https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp',
+            };
+            const mappedResults = (evalRow.models || []).map(model => {
+              const found = evalResults.find(r => r.model === model);
+              return {
+                model,
+                icon: modelIconsMap[model] || '',
+                prompt: prompt,
+                trials: found ? found.trials : 0,
+                score: found ? found.score : 0
+              };
+            });
+            setResults(mappedResults);
+          }
+        }
+      } else if (router.query.prompt) {
+        setPrompt(router.query.prompt);
+      }
+      if (!router.query.prompt && !router.query.eval_id) {
+        promptRef.current && promptRef.current.focus();
+      } else {
+        evalPromptRef.current && evalPromptRef.current.focus();
+      }
     }
+    maybeLoadEval();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.query.eval_id, router.query.prompt]);
 
-    if (!prompt) {
-      promptRef.current.focus();
-    } else {
-      evalPromptRef.current.focus();
+  // Autoselect title input when scrolled into view
+  useEffect(() => {
+    const handleScroll = () => {
+      if (titleInputRef.current) {
+        const rect = titleInputRef.current.getBoundingClientRect();
+        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
+          titleInputRef.current.select();
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Update title in Supabase
+  const updateTitle = async (newTitle) => {
+    if (!evalId || !newTitle) return;
+    try {
+      const response = await fetch('/api/eval-title', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({ eval_id: evalId, title: newTitle })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setTitleUpdateStatus('success');
+        setTimeout(() => setTitleUpdateStatus(null), 1200);
+      } else {
+        setTitleUpdateStatus('error');
+        setTimeout(() => setTitleUpdateStatus(null), 1200);
+      }
+    } catch {
+      setTitleUpdateStatus('error');
+      setTimeout(() => setTitleUpdateStatus(null), 1200);
     }
-  }, [router.query.prompt]);
+  };
+
+  const handleTitleBlur = (e) => {
+    updateTitle(e.target.value);
+  };
+
+  const handleTitleChange = (e) => {
+    setTitle(e.target.value);
+    // Optionally debounce updateTitle here for live updates
+  };
+
+  const handleRun = async (customTitle) => {
+    setResults(results.map(r => ({ ...r, trials: 0, score: 0 })));
+    hasScrolledRef.current = false;
+    setEvalId(null); // Reset before new run
+    const response = await fetch('/api/run', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+      },
+      body: JSON.stringify({
+        models: results.map(r => r.model),
+        prompt,
+        evalPrompt,
+        title: customTitle || title
+      })
+    });
+    if (!response.body) return;
+    const reader = response.body.getReader();
+    let decoder = new TextDecoder();
+    let done = false;
+    let newResults = [...results];
+    let firstLine = true;
+    while (!done) {
+      const { value, done: doneReading } = await reader.read();
+      done = doneReading;
+      if (value) {
+        const lines = decoder.decode(value).split('\n').filter(Boolean);
+        for (const line of lines) {
+          const result = JSON.parse(line);
+          if (firstLine && result.eval_id) {
+            setEvalId(result.eval_id);
+            firstLine = false;
+            continue;
+          }
+          const idx = newResults.findIndex(r => r.model === result.model);
+          if (idx !== -1) {
+            newResults[idx] = { ...newResults[idx], ...result };
+          }
+        }
+        setResults([...newResults]);
+        if (resultsRef.current && !hasScrolledRef.current) {
+          resultsRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+          hasScrolledRef.current = true;
+        }
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] font-sans flex flex-col pb-80">
       <Head>
-        <title>LMEval</title>
+        <title>LMEvals</title>
       </Head>
       <CustomNavbar />
 
@@ -93,7 +228,6 @@ export default function Configure() {
                 <img src="https://openrouter.ai/images/icons/Anthropic.svg" className="w-7 h-7 border rounded-lg object-contain" />
                 <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s" className="w-7 h-7 border rounded-lg object-contain" />
                 <img src="https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp" className="w-7 h-7 border rounded-lg object-contain" />
-                <img src="https://logosandtypes.com/wp-content/uploads/2025/02/Deepseek.png" className="w-7 h-7 border rounded-lg object-contain" />
               </div>
             </div>
             <div>
@@ -122,6 +256,7 @@ export default function Configure() {
           <div className="mt-8">
             <button
               disabled={!prompt || !evalPrompt}
+              onClick={() => handleRun(title)}
               className={`w-full py-3 rounded-lg text-lg font-semibold transition-colors duration-200
                 ${!prompt || !evalPrompt ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
             >
@@ -131,10 +266,28 @@ export default function Configure() {
         </div>
       </div>
 
-      {/* <div className="w-3/4 mx-auto overflow-hidden mt-12 mb-4">
-        <h1 className="text-xl font-normal text-gray-500">Results</h1>
-      </div> */}
-      <div className="w-3/4 mx-auto border rounded-xl border-gray-200 overflow-hidden mt-12">
+      <div className="w-3/4 mx-auto flex overflow-hidden mt-12 mb-0">
+        <input
+          ref={titleInputRef}
+          type="text"
+          className="w-full border text-3xl border-none bg-transparent focus:outline-none focus:ring-0 rounded-lg px-4 py-2 mb-4"
+          placeholder="Untitled eval"
+          value={title}
+          onChange={handleTitleChange}
+          onBlur={handleTitleBlur}
+          style={{
+            border: 'none',
+            outline: 'none',
+            boxShadow: 'none',
+            borderRadius: '10px',
+            padding: '10px',
+            backgroundColor: 'rgba(0, 155, 255, 0.1)',
+            width: 'fit-content',
+          }}
+          autoFocus
+        />
+      </div>
+      <div ref={resultsRef} className="w-3/4 mx-auto border rounded-xl border-gray-200 overflow-hidden mt-0">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -143,6 +296,7 @@ export default function Configure() {
                 <th className="px-8 py-5 text-left text-sm font-normal text-gray-500">Prompt</th>
                 <th className="px-8 py-5 text-left text-sm font-normal text-gray-500">Trials</th>
                 <th className="px-8 py-5 text-left text-sm font-normal text-gray-500">Score</th>
+                <th className="px-8 py-5 text-left text-sm font-normal text-gray-500"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -177,10 +331,18 @@ export default function Configure() {
                       <span className="font-semibold text-gray-800 text-base">{row.model}</span>
                     </td>
                     <td className="px-8 py-5 text-gray-700 whitespace-pre-line text-base max-w-xs">
-                      <span className="block bg-gray-50 rounded-lg px-3 py-2 text-gray-700 font-mono text-sm shadow-inner">{row.prompt}</span>
+                      <span className="block bg-gray-50 rounded-lg px-3 py-2 text-gray-700 font-mono text-sm shadow-inner">{prompt}</span>
                     </td>
                     <td className="px-8 py-5">
+                      <span className="flex items-center gap-2">
                         {row.trials}
+                        {row.trials < 5 && (
+                          <svg className="animate-spin ml-1 text-gray-400" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                          </svg>
+                        )}
+                      </span>
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-2">
@@ -197,6 +359,32 @@ export default function Configure() {
                         </span>
                       </div>
                     </td>
+                    <td className="px-8 py-5">
+                      <button
+                        className={`bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-3 w-32 text-sm rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed`}
+                        onClick={async () => {
+                          if (!evalId || !row.model) return;
+                          setModalModel(row.model);
+                          setModalOpen(true);
+                          // Use completions from state if trials < 5, else fetch from Supabase
+                          if (row.trials < 5 && row.completions) {
+                            setModalCompletions(row.completions);
+                          } else {
+                            // Fetch completions from Supabase
+                            const { data: evalResults, error } = await supabase
+                              .from('eval_results')
+                              .select('completions')
+                              .eq('eval_id', evalId)
+                              .eq('model', row.model)
+                              .single();
+                            setModalCompletions((evalResults && evalResults.completions) || []);
+                          }
+                        }}
+                        disabled={!evalId || !row.model || row.trials === 0}
+                      >
+                        View results
+                      </button>
+                    </td>
                   </motion.tr>
                 ))
               )}
@@ -205,52 +393,24 @@ export default function Configure() {
         </div>
 
         <div className="mt-8 flex flex-col md:flex-row gap-3 p-2">
-          {/* Save as Draft */}
           <button
             type="button"
             disabled={!prompt || !evalPrompt}
             onClick={() => {
-              // Save draft logic here
-              alert("Your evaluation has been saved as a draft.");
+              handleRun(title);
+              alert('Your evaluation has been published and is running!');
             }}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-lg font-semibold transition-all duration-200 shadow-sm
-              ${!prompt || !evalPrompt
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-white text-blue-700 border border-blue-600 hover:bg-blue-50'}`}
+              ${!prompt || !evalPrompt ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600'}`}
           >
-            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            Save to library
+            <ArrowRight className="w-5 h-5" /> Publish on LMEvals
           </button>
-
-          {/* Publish & Run */}
-          <button
-            type="button"
-            disabled={!prompt || !evalPrompt}
-            onClick={() => {
-              // Publish logic here
-              alert("Your evaluation has been published and is running!");
-            }}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-lg font-semibold transition-all duration-200 shadow-sm
-              ${!prompt || !evalPrompt
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600'}`}
-          >
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12l7-7 7 7" />
-            </svg>
-            Publish on LMEval
-          </button>
-
-          {/* Share to Twitter */}
           <button
             type="button"
             disabled={!prompt || !evalPrompt}
             onClick={() => {
               const text = encodeURIComponent(
-                `Check out my new LLM evaluation: "${prompt}" on LMEval!`
+                `Check out my new LLM evaluation: "${prompt}" on LMEvals!`
               );
               const url = encodeURIComponent(window.location.href);
               window.open(
@@ -272,6 +432,49 @@ export default function Configure() {
           </button>
         </div>
       </div>
+
+      {/* Modal for completions */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg max-w-3xl w-full p-6 relative">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              onClick={() => setModalOpen(false)}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <h2 className="text-xl font-bold mb-4">Answers for {modalModel}</h2>
+            <ul className="space-y-3 max-h-[50vh] overflow-y-auto">
+              {modalCompletions.length === 0 ? (
+                <li className="text-gray-500">No answers available.</li>
+              ) : (
+                modalCompletions.map((c, i) => (
+                  <li key={i} className="bg-gray-50 rounded p-3 border flex flex-col relative">
+                    <div className="flex items-center mb-2">
+                      <span
+                        className={`text-lg font-bold px-3 py-1 rounded-full mr-3
+                          ${typeof c.score === 'number'
+                            ? c.score >= 0.8
+                              ? 'bg-green-100 text-green-700 border border-green-300'
+                              : c.score >= 0.5
+                                ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
+                                : 'bg-red-100 text-red-700 border border-red-300'
+                            : 'bg-gray-200 text-gray-500 border border-gray-300'
+                        }`}
+                        title="Score"
+                      >
+                        {typeof c.score === 'number' ? (c.score * 100).toFixed(0) + '%' : c.score}
+                      </span>
+                    </div>
+                    <span className="font-mono text-sm text-gray-800">{c.answer}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

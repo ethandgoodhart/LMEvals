@@ -32,12 +32,12 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#FAFAFA] font-sans flex flex-col">
       <Head>
-        <title>LMEval</title>
+        <title>LMEvals</title>
       </Head>
       <CustomNavbar />
 
       <main className="flex-1 flex flex-col items-center justify-center px-6">
-        <div className="relative -mt-12">
+        <div className="relative mt-12">
           <span className="block text-center mb-6">
             <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium border-black/25 border text-black/70">
               Beta
@@ -106,17 +106,17 @@ export default function Home() {
                 </svg>
               </button>
             </form>
-            {/* <Link href="/dashboard">
-              <button className="bg-black text-white text-lg font-medium px-8 py-4 rounded-2xl hover:scale-105 transition-all duration-300 ease-[easeInOut] flex items-center">
-                Open platform
-              </button>
-            </Link>
-            <Link href="/docs">
-              <button className="bg-black/5 text-black text-lg font-medium px-8 py-4 rounded-2xl hover:bg-black/10 transition-all duration-300 ease-[easeInOut]">
-                Read docs
-              </button>
-            </Link> */}
           </div>
+
+          <div className="mt-20 flex flex-col items-center justify-center">
+              <div className="flex gap-1">
+                <img src="https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg" className="w-10 h-10 border rounded-lg object-contain" />
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png" className="w-10 h-10 border rounded-lg object-contain p-1" />
+                <img src="https://openrouter.ai/images/icons/Anthropic.svg" className="w-10 h-10 border rounded-lg object-contain" />
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s" className="w-10 h-10 border rounded-lg object-contain" />
+                <img src="https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp" className="w-10 h-10 border rounded-lg object-contain" />
+              </div>
+            </div>
         </div>
       </main>
 
@@ -124,7 +124,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto py-12 px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex items-center">
-              <span className="text-black/70 text-sm">© 2025 LMEval. All rights reserved.</span>
+              <span className="text-black/70 text-sm">© 2025 LMEvals. All rights reserved.</span>
             </div>
             <nav className="flex items-center space-x-8">
               <a href="#" className="text-black/70 hover:text-black text-sm transition-colors duration-200">About</a>

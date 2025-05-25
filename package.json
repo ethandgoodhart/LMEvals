@@ -1,5 +1,5 @@
 {
-  "name": "LMEval",
+  "name": "LMEvals",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.4",
+    "@supabase/supabase-js": "^2.49.8",
     "exponential-backoff": "^3.1.1",
     "framer-motion": "^12.0.6",
     "lucide-react": "^0.474.0",

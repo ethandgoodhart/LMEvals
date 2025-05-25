@@ -1,27 +1,67 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import CustomNavbar from "../components/CustomNavbar";
 import Head from "next/head";
+import { createClient } from '@supabase/supabase-js';
+import { useRouter } from 'next/router';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const modelIcons = {
+  'openai/gpt-4o-mini': 'https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg',
+  'google/gemini-2.5-flash-preview-05-20': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png',
+  'anthropic/claude-3.5-haiku': 'https://openrouter.ai/images/icons/Anthropic.svg',
+  'x-ai/grok-3-mini-beta': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s',
+  'meta-llama/llama-3.3-70b-instruct': 'https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp',
+  'deepseek/deepseek-chat-v3-0324': 'https://logosandtypes.com/wp-content/uploads/2025/02/Deepseek.png'
+};
 
 export default function Library() {
-  const [results] = useState([]);
+  const router = useRouter();
+  const [results, setResults] = useState([]);
 
-  const filteredResults = [
-    {
-      evalName: "Test",
-      createdBy: "alice",
-      prompt: "How many r's in Strawberry?",
-      trials: 10,
-      winner: "gpt-4o",
-      winnerIcon: "https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg",
-      topPct: 0.8,
+  useEffect(() => {
+    async function fetchEvals() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: evals, error } = await supabase.from('evals').select('*').eq('user_id', user.id);
+      if (!error && evals) {
+        // For each eval, fetch results
+        const evalsWithResults = await Promise.all(evals.map(async (evalRow) => {
+          const { data: results } = await supabase.from('eval_results').select('*').eq('eval_id', evalRow.id);
+          let winner = null, winnerIcon = null, topPct = 0, trials = 0;
+          if (results && results.length > 0) {
+            // Find the model with the highest score
+            const best = results.reduce((a, b) => (a.score > b.score ? a : b));
+            winner = best.model;
+            winnerIcon = modelIcons[winner] || null;
+            topPct = best.score;
+            trials = best.trials;
+          }
+          return {
+            ...evalRow,
+            evalName: evalRow.title || 'Untitled',
+            winner,
+            winnerIcon,
+            topPct,
+            score: topPct,
+            trials
+          };
+        }));
+        setResults(evalsWithResults);
+      }
     }
-  ];
+    fetchEvals();
+  }, []);
+
+  const filteredResults = results;
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] font-sans flex flex-col pb-32">
       <Head>
-        <title>LMEval</title>
+        <title>LMEvals</title>
       </Head>
       <CustomNavbar />
       
@@ -47,6 +87,7 @@ export default function Library() {
               <button
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition"
                 title="Create new eval"
+                onClick={() => router.push('/configure')}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -75,7 +116,7 @@ export default function Library() {
               <div className="divide-y divide-gray-100">
                 {filteredResults.map((row, index) => {
                   const evalName = row.evalName;
-                  const createdBy = row.createdBy;
+                  const createdBy = row.author || row.createdBy;
                   const winner = row.winner;
                   const winnerIcon = row.winnerIcon;
                   const topPct = (row.topPct * 100).toFixed(0);
@@ -90,12 +131,15 @@ export default function Library() {
                     >
                       {/* Eval Name (like a search result title) */}
                       <div className="flex flex-wrap items-center gap-2">
-                        <a
-                          href="#"
-                          className="text-xl sm:text-2xl font-medium text-gray-900 group-hover:underline"
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className="text-xl sm:text-2xl font-medium text-gray-900 group-hover:underline cursor-pointer"
+                          onClick={() => router.push(`/configure?eval_id=${row.id}`)}
+                          onKeyPress={e => { if (e.key === 'Enter') router.push(`/configure?eval_id=${row.id}`); }}
                         >
                           {evalName}
-                        </a>
+                        </span>
                         <span className="ml-2 text-xs text-gray-400 bg-gray-100 rounded px-2 py-0.5">by {createdBy}</span>
                       </div>
                       {/* Prompt */}

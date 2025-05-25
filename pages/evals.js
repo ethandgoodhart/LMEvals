@@ -1,33 +1,83 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import CustomNavbar from "../components/CustomNavbar";
 import Head from "next/head";
+import { createClient } from '@supabase/supabase-js';
+import { useRouter } from 'next/router';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const modelIcons = {
+    'openai/gpt-4o-mini': 'https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg',
+    'google/gemini-2.5-flash-preview-05-20': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png',
+    'anthropic/claude-3.5-haiku': 'https://openrouter.ai/images/icons/Anthropic.svg',
+    'x-ai/grok-3-mini-beta': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s',
+    'meta-llama/llama-3.3-70b-instruct': 'https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp',
+    'deepseek/deepseek-chat-v3-0324': 'https://logosandtypes.com/wp-content/uploads/2025/02/Deepseek.png'
+};
 
 export default function BrowseEvals() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
-  const [results] = useState([]);
+  const [results, setResults] = useState([]);
 
-  const filteredResults = [
-    {
-      evalName: "Strawberry",
-      createdBy: "alice",
-      prompt: "How many r's in Strawberry?",
-      trials: 10,
-      winner: "gpt-4o",
-      winnerIcon: "https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg",
-      topPct: 0.8,
+  // Sync searchTerm with query param
+  useEffect(() => {
+    if (router.isReady) {
+      const search = router.query.search || "";
+      setSearchTerm(typeof search === 'string' ? search : "");
     }
-  ];
+  }, [router.query.search, router.isReady]);
+
+  useEffect(() => {
+    async function fetchEvals() {
+      let query = supabase.from('evals').select('*');
+      if (searchTerm) {
+        query = query.textSearch('prompt', searchTerm);
+      }
+      const { data: evals, error } = await query;
+      if (!error && evals) {
+        // For each eval, fetch results
+        const evalsWithResults = await Promise.all(evals.map(async (evalRow) => {
+          const { data: results } = await supabase.from('eval_results').select('*').eq('eval_id', evalRow.id);
+          let winner = null, winnerIcon = null, topPct = 0, trials = 0;
+          if (results && results.length > 0) {
+            // Find the model with the highest score
+            const best = results.reduce((a, b) => (a.score > b.score ? a : b));
+            winner = best.model;
+            winnerIcon = modelIcons[winner] || null;
+            topPct = best.score;
+            trials = best.trials;
+          }
+          return {
+            ...evalRow,
+            evalName: evalRow.title || 'Untitled',
+            winner,
+            winnerIcon,
+            topPct,
+            score: topPct,
+            trials
+          };
+        }));
+        setResults(evalsWithResults);
+      }
+    }
+    fetchEvals();
+  }, [searchTerm]);
+
+  const filteredResults = results;
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] font-sans flex flex-col pb-32">
       <Head>
-        <title>LMEval</title>
+        <title>LMEvals</title>
       </Head>
       <CustomNavbar />
       
-      <div className="flex-1 flex flex-col items-center px-4 py-16 mt-20">
-        <div className="w-full max-w-4xl mx-auto">
+      <div className="flex-1 flex flex-col items-center py-16 mt-28">
+        <div className="w-full max-w-7xl mx-auto">
           <h1 className="text-4xl font-bold text-gray-900 mb-2 px-6">Browse evals</h1>
           <p className="text-base text-gray-500 mb-8 px-6">{filteredResults.length} results</p>
 
@@ -47,7 +97,7 @@ export default function BrowseEvals() {
               <div className="divide-y divide-gray-100">
                 {filteredResults.map((row, index) => {
                   const evalName = row.evalName;
-                  const createdBy = row.createdBy;
+                  const createdBy = row.author || row.createdBy;
                   const winner = row.winner;
                   const winnerIcon = row.winnerIcon;
                   const topPct = (row.topPct * 100).toFixed(0);
@@ -62,12 +112,15 @@ export default function BrowseEvals() {
                     >
                       {/* Eval Name (like a search result title) */}
                       <div className="flex flex-wrap items-center gap-2">
-                        <a
-                          href="#"
-                          className="text-xl sm:text-2xl font-medium text-gray-900 group-hover:underline"
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className="text-xl sm:text-2xl font-medium text-gray-900 group-hover:underline cursor-pointer"
+                          onClick={() => router.push(`/configure?eval_id=${row.id}`)}
+                          onKeyPress={e => { if (e.key === 'Enter') router.push(`/configure?eval_id=${row.id}`); }}
                         >
                           {evalName}
-                        </a>
+                        </span>
                         <span className="ml-2 text-xs text-gray-400 bg-gray-100 rounded px-2 py-0.5">by {createdBy}</span>
                       </div>
                       {/* Prompt */}
