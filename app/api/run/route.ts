@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { backOff } from "exponential-backoff";
 import { createClient } from '@supabase/supabase-js';
 
-const openrouter_key = "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"
+// const openrouter_key = "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"
+const openrouter_key = "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";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -27,7 +28,14 @@ async function getCompletion(model: string, prompt: string): Promise<string> {
       max_tokens: 1024
     })
   });
-  const data = await response.json();
+  const rawText = await response.text();
+  console.log('OpenRouter raw response:', rawText);
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch (e) {
+    throw new Error('Non-JSON response from OpenRouter: ' + rawText);
+  }
   if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
     throw new Error('Invalid completion response');
   }
@@ -129,6 +137,18 @@ export async function POST(request: Request) {
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    // Check credits in user_metadata
+    let credits = (user.user_metadata && typeof user.user_metadata.credits === 'number') ? user.user_metadata.credits : 3;
+    if (credits <= 0) {
+      return NextResponse.json({ error: 'You are out of credits. Please contact support or wait for more.' }, { status: 403 });
+    }
+    // Decrement credits and update user_metadata
+    const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
+      user_metadata: { ...user.user_metadata, credits: credits - 1 }
+    });
+    if (updateError) {
+      return NextResponse.json({ error: 'Failed to update credits.' }, { status: 500 });
+    }
     // Save eval to supabase
     // Get email prefix for author
     const emailPrefix = user.email ? user.email.split('@')[0] : null;
@@ -138,7 +158,8 @@ export async function POST(request: Request) {
       eval_prompt: evalPrompt,
       models,
       title,
-      author: emailPrefix
+      author: emailPrefix,
+      is_public: false
     }).select().single();
     if (evalError) {
       return NextResponse.json({ error: 'Failed to save eval' }, { status: 500 });

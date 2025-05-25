@@ -15,7 +15,8 @@ create table if not exists evals (
   author text,
   best_model text,
   best_model_icon text,
-  best_model_score float
+  best_model_score float,
+  is_public boolean not null default false
 );
 
 create table if not exists eval_results (

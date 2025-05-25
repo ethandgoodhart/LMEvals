@@ -44,7 +44,7 @@ export default function Home() {
             </span>
           </span>
           
-          <h1 className="text-center text-7xl font-bold tracking-tight text-black mb-4 max-w-5xl">
+          <h1 className="text-center text-7xl max-sm:text-5xl font-bold tracking-tight text-black mb-4 max-w-5xl">
             Create LLM evals.
           </h1>
 
@@ -73,12 +73,12 @@ export default function Home() {
                   value={inputValue}
                   autoFocus={true}
                   onChange={e => setInputValue(e.target.value)}
-                  className="w-full pr-14 pl-6 py-4 rounded-2xl border border-black/10 bg-white text-lg focus:outline-none duration-200 shadow-sm"
+                  className="w-full pr-14 pl-6 py-4 max-sm:text-sm rounded-2xl border border-black/10 bg-white text-lg focus:outline-none duration-200 shadow-sm"
                   autoComplete="off"
                 />
                 {inputValue === "" && (
                   <span
-                    className="absolute left-6 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none select-none text-lg transition-opacity"
+                    className="absolute left-6 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none select-none text-lg max-sm:text-sm transition-opacity"
                     style={{ opacity: placeholderOpacity, transition: 'opacity 0.2s' }}
                   >
                     {exampleQueries[placeholderIdx]}

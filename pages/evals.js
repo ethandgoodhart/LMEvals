@@ -33,9 +33,9 @@ export default function BrowseEvals() {
 
   useEffect(() => {
     async function fetchEvals() {
-      let query = supabase.from('evals').select('*');
+      let query = supabase.from('evals').select('*').eq('is_public', true);
       if (searchTerm) {
-        query = query.textSearch('prompt', searchTerm);
+        query = query.textSearch('prompt', searchTerm).eq('is_public', true);
       }
       const { data: evals, error } = await query;
       if (!error && evals) {
@@ -43,13 +43,18 @@ export default function BrowseEvals() {
         const evalsWithResults = await Promise.all(evals.map(async (evalRow) => {
           const { data: results } = await supabase.from('eval_results').select('*').eq('eval_id', evalRow.id);
           let winner = null, winnerIcon = null, topPct = 0, trials = 0;
+          let loser = null, loserIcon = null, lowPct = 0;
           if (results && results.length > 0) {
-            // Find the model with the highest score
+            // Find the model with the highest and lowest score
             const best = results.reduce((a, b) => (a.score > b.score ? a : b));
+            const worst = results.reduce((a, b) => (a.score < b.score ? a : b));
             winner = best.model;
             winnerIcon = modelIcons[winner] || null;
             topPct = best.score;
             trials = best.trials;
+            loser = worst.model;
+            loserIcon = modelIcons[loser] || null;
+            lowPct = worst.score;
           }
           return {
             ...evalRow,
@@ -57,6 +62,9 @@ export default function BrowseEvals() {
             winner,
             winnerIcon,
             topPct,
+            loser,
+            loserIcon,
+            lowPct,
             score: topPct,
             trials
           };
@@ -101,6 +109,9 @@ export default function BrowseEvals() {
                   const winner = row.winner;
                   const winnerIcon = row.winnerIcon;
                   const topPct = (row.topPct * 100).toFixed(0);
+                  const loser = row.loser;
+                  const loserIcon = row.loserIcon;
+                  const lowPct = (row.lowPct * 100).toFixed(0);
 
                   return (
                     <motion.div
@@ -127,30 +138,19 @@ export default function BrowseEvals() {
                       <div className="text-gray-700 text-base sm:text-lg mt-0.5">
                         <span className="font-mono bg-gray-50 rounded px-2 py-1 text-gray-700 shadow-inner">{row.prompt}</span>
                       </div>
-                      {/* Winner, Score, Trials */}
+                      {/* Best, Worst, Trials */}
                       <div className="flex flex-wrap items-center gap-6 mt-2 text-sm">
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-500">Winner:</span>
-                          <img
-                            src={winnerIcon}
-                            alt={winner}
-                            className="w-7 h-7 rounded border border-gray-200 shadow-sm object-contain bg-white"
-                          />
+                          <span className="text-gray-500">Best:</span>
+                          <img src={winnerIcon} alt={winner} className="w-7 h-7 rounded border border-gray-200 shadow-sm object-contain bg-white" />
                           <span className="font-semibold text-gray-800">{winner}</span>
+                          <span className="ml-2 text-green-700 font-bold">{topPct}%</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-500">Score:</span>
-                          <span
-                            className={`font-bold ${
-                              row.score >= 0.7
-                                ? "text-green-600"
-                                : row.score >= 0.4
-                                ? "text-yellow-600"
-                                : "text-red-500"
-                            }`}
-                          >
-                            {topPct}%
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">Worst:</span>
+                          <img src={loserIcon} alt={loser} className="w-7 h-7 rounded border border-gray-200 shadow-sm object-contain bg-white" />
+                          <span className="font-semibold text-gray-800">{loser}</span>
+                          <span className="ml-2 text-red-700 font-bold">{lowPct}%</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span className="text-gray-500">Trials:</span>
