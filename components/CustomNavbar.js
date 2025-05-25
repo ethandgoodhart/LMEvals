@@ -78,6 +78,7 @@ const CustomNavbar = () => {
                         src={user.user_metadata?.avatar_url || "https://api.dicebear.com/7.x/identicon/svg?seed=" + encodeURIComponent(user.email)}
                         alt="User Avatar"
                         className="w-full h-full object-cover"
+                        onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.email?.[0] || "U")}`; }}
                       />
                     </Link>
                   </div>
@@ -141,6 +142,7 @@ const CustomNavbar = () => {
                   src={user.user_metadata?.avatar_url || "https://api.dicebear.com/7.x/identicon/svg?seed=" + encodeURIComponent(user.email)}
                   alt="User Avatar"
                   className="w-9 h-9 rounded-full border-2 border-blue-500 shadow-md"
+                  onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.email?.[0] || "U")}`; }}
                 />
                 Library
               </Link>

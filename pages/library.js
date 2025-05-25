@@ -4,6 +4,7 @@ import CustomNavbar from "../components/CustomNavbar";
 import Head from "next/head";
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/router';
+import { useUser } from "../context/UserContext";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -20,6 +21,7 @@ const modelIcons = {
 
 export default function Library() {
   const router = useRouter();
+  const { user } = useUser();
   const [results, setResults] = useState([]);
   const [credits, setCredits] = useState(3);
   const [deletingId, setDeletingId] = useState(null);
@@ -116,16 +118,23 @@ export default function Library() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 px-2">
             <div className="flex items-center gap-4">
               <div className="relative">
-                <img
-                  src="https://i.pinimg.com/736x/69/a5/60/69a5602fb6377d1fef9bb45e8db9e415.jpg"
-                  className="w-14 h-14 rounded-full shadow-lg object-cover"
-                  alt="Ethan Goodhart"
-                />
+                {user && (user.user_metadata?.avatar_url || user.email) ? (
+                  <img
+                    src={user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.email?.[0] || "U")}`}
+                    className="w-14 h-14 rounded-full shadow-lg object-cover bg-gray-100"
+                    alt={user.user_metadata?.full_name || user.email || "User"}
+                    onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.email?.[0] || "U")}`; }}
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-full shadow-lg bg-gray-200 flex items-center justify-center text-2xl font-bold text-gray-600">
+                    {user && user.email ? user.email[0].toUpperCase() : "U"}
+                  </div>
+                )}
                 <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-400 border-2 border-white rounded-full shadow-sm" title="Online"></span>
               </div>
               <div>
                 <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 leading-tight flex items-center gap-2">
-                  Ethan Goodhart
+                  {user && (user.user_metadata?.full_name || user.email) ? (user.user_metadata?.full_name || user.email) : "User"}
                 </h1>
                 <div className={`mt-2 text-lg sm:text-xl font-bold ${credits > 0 ? 'text-blue-700' : 'text-red-600'}`}>
                   {credits}/3 credits

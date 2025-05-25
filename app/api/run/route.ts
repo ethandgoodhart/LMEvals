@@ -2,9 +2,6 @@ import { NextResponse } from 'next/server';
 import { backOff } from "exponential-backoff";
 import { createClient } from '@supabase/supabase-js';
 
-// const openrouter_key = "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"
-const openrouter_key = "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";
-
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!supabaseUrl || !supabaseKey) {
@@ -17,7 +14,7 @@ async function getCompletion(model: string, prompt: string): Promise<string> {
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${openrouter_key}`,
+      'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
@@ -61,7 +58,7 @@ Return ONLY valid JSON in this format:
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${openrouter_key}`,
+      'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
