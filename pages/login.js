@@ -34,7 +34,7 @@ export default function Login() {
     setLoading(true);
     setError('');
     // In your login callback (client-side)
-    const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+    const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: 'https://lmevals.org/library' } });
     if (data?.session) {
       Cookies.set('sb-access-token', data.session.access_token, { path: '/' });
       Cookies.set('sb-refresh-token', data.session.refresh_token, { path: '/' });
