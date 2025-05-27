@@ -5,6 +5,7 @@ import Head from "next/head";
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/router';
 import { useUser } from "../context/UserContext";
+import { ChevronUp } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -96,6 +97,20 @@ export default function Library() {
   const [toDelete, setToDelete] = useState(null);
   const [toggleLoading, setToggleLoading] = useState({});
   const [showTokenField, setShowTokenField] = useState(false);
+  const [upvotes, setUpvotes] = useState({}); // { [evalId]: { count, hasUpvoted, loading } }
+
+  // Fetch upvotes for all evals
+  async function fetchUpvotes(evalIds) {
+    const token = (await supabase.auth.getSession()).data.session?.access_token;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const upvoteData = {};
+    await Promise.all(evalIds.map(async (evalId) => {
+      const res = await fetch(`/api/eval-upvote?eval_id=${evalId}`, { headers });
+      const data = await res.json();
+      upvoteData[evalId] = { count: data.count || 0, hasUpvoted: !!data.hasUpvoted, loading: false };
+    }));
+    setUpvotes(prev => ({ ...prev, ...upvoteData }));
+  }
 
   useEffect(() => {
     async function checkAuth() {
@@ -149,10 +164,30 @@ export default function Library() {
           };
         }));
         setResults(evalsWithResults);
+        fetchUpvotes(evals.map(e => e.id));
       }
     }
     fetchEvals();
-  }, []);
+    // eslint-disable-next-line
+  }, [user]);
+
+  // Upvote toggle handler
+  const handleUpvote = async (evalId) => {
+    setUpvotes(prev => ({ ...prev, [evalId]: { ...prev[evalId], loading: true } }));
+    const token = (await supabase.auth.getSession()).data.session?.access_token;
+    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+    const hasUpvoted = upvotes[evalId]?.hasUpvoted;
+    if (!user) return;
+    if (hasUpvoted) {
+      // Remove upvote
+      await fetch(`/api/eval-upvote?eval_id=${evalId}`, { method: 'DELETE', headers });
+      setUpvotes(prev => ({ ...prev, [evalId]: { ...prev[evalId], count: Math.max(0, prev[evalId].count - 1), hasUpvoted: false, loading: false } }));
+    } else {
+      // Add upvote
+      await fetch(`/api/eval-upvote`, { method: 'POST', headers, body: JSON.stringify({ eval_id: evalId }) });
+      setUpvotes(prev => ({ ...prev, [evalId]: { ...prev[evalId], count: (prev[evalId].count || 0) + 1, hasUpvoted: true, loading: false } }));
+    }
+  };
 
   const handleDelete = async (evalId) => {
     setDeletingId(evalId);
@@ -181,7 +216,7 @@ export default function Library() {
       </Head>
       <CustomNavbar />
       {/* User Info Card Header */}
-      <div className="w-full flex justify-center mt-44 px-2">
+      <div className="w-full flex justify-center mt-32 sm:mt-44 px-2">
         <div className="w-full max-w-7xl rounded-2xl  flex flex-col sm:flex-row items-center gap-6 px-8 py-7 relative">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
@@ -244,7 +279,7 @@ export default function Library() {
             )}
           </div>
           {/* Action Buttons */}
-          <div className="flex flex-col gap-3 sm:gap-4 sm:ml-8 items-center sm:items-end mt-6 sm:mt-0">
+          <div className="flex sm:flex-col gap-3 sm:gap-4 sm:ml-8 items-center sm:items-end mt-6 sm:mt-0">
             <button
               className="flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition text-base"
               title="Create new eval"
@@ -272,7 +307,7 @@ export default function Library() {
         </div>
       </div>
       {/* End User Info Card Header */}
-      <div className="flex-1 flex flex-col items-center px-4 py-16">
+      <div className="flex-1 flex flex-col items-center px-4 sm:py-16">
         <div className="w-full max-w-7xl mx-auto">
           <div className="flex items-center gap-2 mb-8 px-2">
             <span className="text-base text-gray-500">{filteredResults.length} {filteredResults.length === 1 ? "eval" : "evals"}</span>
@@ -301,6 +336,7 @@ export default function Library() {
                   const loser = row.loser;
                   const loserIcon = row.loserIcon;
                   const lowPct = (row.lowPct * 100).toFixed(0);
+                  const upvote = upvotes[row.id] || { count: 0, hasUpvoted: false, loading: false };
 
                   return (
                     <motion.div
@@ -308,80 +344,101 @@ export default function Library() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: index * 0.08 }}
-                      className="group hover:bg-blue-50/40 transition-colors duration-200 px-6 py-7 sm:py-6 flex flex-col gap-2"
+                      className="group hover:bg-blue-50/40 transition-colors duration-200 px-6 py-7 sm:py-6 flex flex-row gap-4 items-stretch"
                     >
-                      {/* Eval Name (like a search result title) */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`mr-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${row.is_public ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-500 border-gray-300'}`}>{row.is_public ? 'Public' : 'Private'}</span>
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          className="text-xl sm:text-2xl font-medium text-gray-900 group-hover:underline cursor-pointer"
-                          onClick={() => router.push(`/configure?eval_id=${row.id}`)}
-                          onKeyPress={e => { if (e.key === 'Enter') router.push(`/configure?eval_id=${row.id}`); }}
+                      {/* Upvote column */}
+                      <div className="flex flex-col items-center justify-center mr-4 select-none">
+                        <button
+                          className={`flex flex-col items-center group/upvote focus:outline-none ${upvote.loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          style={{ minWidth: 36 }}
+                          disabled={upvote.loading || !user}
+                          onClick={e => { e.stopPropagation(); handleUpvote(row.id); }}
+                          title={user ? (upvote.hasUpvoted ? 'Remove upvote' : 'Upvote') : 'Login to upvote'}
+                          aria-label={user ? (upvote.hasUpvoted ? 'Remove upvote' : 'Upvote') : 'Login to upvote'}
                         >
-                          {evalName}
-                        </span>
-                      </div>
-                      {/* Prompt */}
-                      <div className="text-gray-700 text-base sm:text-lg mt-0.5">
-                        <span className="font-mono bg-gray-50 rounded px-2 py-1 text-gray-700 shadow-inner">{row.prompt}</span>
-                      </div>
-                      {/* Winner, Score, Trials */}
-                      <div className="flex flex-wrap items-center gap-6 mt-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-500">Best:</span>
-                          <img
-                            src={winnerIcon}
-                            alt={winner}
-                            className="w-7 h-7 rounded border border-gray-200 shadow-sm object-contain bg-white"
+                          <ChevronUp
+                            size={28}
+                            strokeWidth={2.5}
+                            className={`transition-colors duration-150 ${upvote.hasUpvoted ? 'text-blue-600 fill-blue-100' : 'text-gray-400 group-hover/upvote:text-blue-400'} ${upvote.loading ? 'opacity-50' : ''}`}
+                            fill={upvote.hasUpvoted ? '#2563eb' : 'none'}
                           />
-                          <span className="font-semibold text-gray-800">{winner}</span>
-                          <span className="ml-2 text-green-700 font-bold">{topPct}%</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-500">Worst:</span>
-                          <img
-                            src={loserIcon}
-                            alt={loser}
-                            className="w-7 h-7 rounded border border-gray-200 shadow-sm object-contain bg-white"
-                          />
-                          <span className="font-semibold text-gray-800">{loser}</span>
-                          <span className="ml-2 text-red-700 font-bold">{lowPct}%</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-500">Trials:</span>
-                          <span className="font-semibold text-gray-800">{row.trials}</span>
-                        </div>
-                        <div className="flex items-center gap-1 ml-auto">
-                          <button
-                            className={`ml-2 px-3 py-1 rounded text-xs font-semibold border transition-colors duration-200 ${row.is_public ? 'bg-gray-200 text-gray-600 border-gray-300 hover:bg-gray-300' : 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200'} ${toggleLoading[row.id] ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            disabled={!!toggleLoading[row.id]}
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              setToggleLoading(prev => ({ ...prev, [row.id]: true }));
-                              const session = await supabase.auth.getSession();
-                              await fetch('/api/eval-title', {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                  'Authorization': `Bearer ${session.data.session?.access_token}`
-                                },
-                                body: JSON.stringify({ eval_id: row.id, title: row.title, is_public: !row.is_public })
-                              });
-                              setResults(results => results.map(r => r.id === row.id ? { ...r, is_public: !row.is_public } : r));
-                              setToggleLoading(prev => ({ ...prev, [row.id]: false }));
-                            }}
+                          <span className={`text-lg font-semibold mt-0 ${upvote.hasUpvoted ? 'text-blue-700' : 'text-gray-500'}`}>{upvote.count}</span>
+                        </button>
+                      </div>
+                      {/* Main content */}
+                      <div className="flex-1 flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`mr-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${row.is_public ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-500 border-gray-300'}`}>{row.is_public ? 'Public' : 'Private'}</span>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            className="text-xl sm:text-2xl font-medium text-gray-900 group-hover:underline cursor-pointer"
+                            onClick={() => router.push(`/configure?eval_id=${row.id}`)}
+                            onKeyPress={e => { if (e.key === 'Enter') router.push(`/configure?eval_id=${row.id}`); }}
                           >
-                            {row.is_public ? 'Make private' : 'Publish'}
-                          </button>
-                          <button
-                            className={`ml-auto px-3 py-1 rounded bg-red-100 text-red-700 font-semibold hover:bg-red-200 transition disabled:opacity-50`}
-                            disabled={deletingId === row.id}
-                            onClick={() => { setShowConfirm(true); setToDelete(row.id); }}
-                          >
-                            Delete
-                          </button>
+                            {evalName}
+                          </span>
+                        </div>
+                        {/* Prompt */}
+                        <div className="text-gray-700 text-base sm:text-lg mt-0.5">
+                          <span className="font-mono bg-gray-50 rounded px-2 py-1 text-gray-700 shadow-inner">{row.prompt}</span>
+                        </div>
+                        {/* Winner, Score, Trials */}
+                        <div className="flex flex-wrap items-center gap-6 mt-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500">Best:</span>
+                            <img
+                              src={winnerIcon}
+                              alt={winner}
+                              className="w-7 h-7 rounded border border-gray-200 shadow-sm object-contain bg-white"
+                            />
+                            <span className="font-semibold text-gray-800">{winner}</span>
+                            <span className="ml-2 text-green-700 font-bold">{topPct}%</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500">Worst:</span>
+                            <img
+                              src={loserIcon}
+                              alt={loser}
+                              className="w-7 h-7 rounded border border-gray-200 shadow-sm object-contain bg-white"
+                            />
+                            <span className="font-semibold text-gray-800">{loser}</span>
+                            <span className="ml-2 text-red-700 font-bold">{lowPct}%</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-500">Trials:</span>
+                            <span className="font-semibold text-gray-800">{row.trials}</span>
+                          </div>
+                          <div className="flex items-center gap-1 ml-auto">
+                            <button
+                              className={`ml-2 px-3 py-1 rounded text-xs font-semibold border transition-colors duration-200 ${row.is_public ? 'bg-gray-200 text-gray-600 border-gray-300 hover:bg-gray-300' : 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200'} ${toggleLoading[row.id] ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              disabled={!!toggleLoading[row.id]}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                setToggleLoading(prev => ({ ...prev, [row.id]: true }));
+                                const session = await supabase.auth.getSession();
+                                await fetch('/api/eval-title', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${session.data.session?.access_token}`
+                                  },
+                                  body: JSON.stringify({ eval_id: row.id, title: row.title, is_public: !row.is_public })
+                                });
+                                setResults(results => results.map(r => r.id === row.id ? { ...r, is_public: !row.is_public } : r));
+                                setToggleLoading(prev => ({ ...prev, [row.id]: false }));
+                              }}
+                            >
+                              {row.is_public ? 'Make private' : 'Publish'}
+                            </button>
+                            <button
+                              className={`ml-auto px-3 py-1 rounded bg-red-100 text-red-700 font-semibold hover:bg-red-200 transition disabled:opacity-50`}
+                              disabled={deletingId === row.id}
+                              onClick={() => { setShowConfirm(true); setToDelete(row.id); }}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </motion.div>

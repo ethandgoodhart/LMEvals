@@ -4,6 +4,8 @@ import CustomNavbar from "../components/CustomNavbar";
 import Head from "next/head";
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/router';
+import { useUser } from "../context/UserContext";
+import { ChevronUp } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -20,8 +22,23 @@ const modelIcons = {
 
 export default function BrowseEvals() {
   const router = useRouter();
+  const { user } = useUser();
   const [searchTerm, setSearchTerm] = useState("");
   const [results, setResults] = useState([]);
+  const [upvotes, setUpvotes] = useState({}); // { [evalId]: { count, hasUpvoted, loading } }
+
+  // Fetch upvotes for all evals
+  async function fetchUpvotes(evalIds) {
+    const token = (await supabase.auth.getSession()).data.session?.access_token;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const upvoteData = {};
+    await Promise.all(evalIds.map(async (evalId) => {
+      const res = await fetch(`/api/eval-upvote?eval_id=${evalId}`, { headers });
+      const data = await res.json();
+      upvoteData[evalId] = { count: data.count || 0, hasUpvoted: !!data.hasUpvoted, loading: false };
+    }));
+    setUpvotes(prev => ({ ...prev, ...upvoteData }));
+  }
 
   // Sync searchTerm with query param
   useEffect(() => {
@@ -70,10 +87,30 @@ export default function BrowseEvals() {
           };
         }));
         setResults(evalsWithResults);
+        fetchUpvotes(evals.map(e => e.id));
       }
     }
     fetchEvals();
-  }, [searchTerm]);
+    // eslint-disable-next-line
+  }, [searchTerm, user]);
+
+  // Upvote toggle handler
+  const handleUpvote = async (evalId) => {
+    setUpvotes(prev => ({ ...prev, [evalId]: { ...prev[evalId], loading: true } }));
+    const token = (await supabase.auth.getSession()).data.session?.access_token;
+    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+    const hasUpvoted = upvotes[evalId]?.hasUpvoted;
+    if (!user) return;
+    if (hasUpvoted) {
+      // Remove upvote
+      await fetch(`/api/eval-upvote?eval_id=${evalId}`, { method: 'DELETE', headers });
+      setUpvotes(prev => ({ ...prev, [evalId]: { ...prev[evalId], count: Math.max(0, prev[evalId].count - 1), hasUpvoted: false, loading: false } }));
+    } else {
+      // Add upvote
+      await fetch(`/api/eval-upvote`, { method: 'POST', headers, body: JSON.stringify({ eval_id: evalId }) });
+      setUpvotes(prev => ({ ...prev, [evalId]: { ...prev[evalId], count: (prev[evalId].count || 0) + 1, hasUpvoted: true, loading: false } }));
+    }
+  };
 
   const filteredResults = results;
 
@@ -84,7 +121,7 @@ export default function BrowseEvals() {
       </Head>
       <CustomNavbar />
       
-      <div className="flex-1 flex flex-col items-center py-16 mt-28">
+      <div className="flex-1 flex flex-col items-center py-16 mt-20 sm:mt-28">
         <div className="w-full max-w-7xl mx-auto">
           <h1 className="text-4xl font-bold text-gray-900 mb-2 px-6">Browse evals</h1>
           <p className="text-base text-gray-500 mb-8 px-6">{filteredResults.length} results</p>
@@ -112,49 +149,70 @@ export default function BrowseEvals() {
                   const loser = row.loser;
                   const loserIcon = row.loserIcon;
                   const lowPct = (row.lowPct * 100).toFixed(0);
-
+                  const upvote = upvotes[row.id] || { count: 0, hasUpvoted: false, loading: false };
                   return (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: index * 0.08 }}
-                      className="group hover:bg-blue-50/40 transition-colors duration-200 px-6 py-7 sm:py-6 flex flex-col gap-2"
+                      className="group hover:bg-blue-50/40 transition-colors duration-200 px-6 py-7 sm:py-6 flex flex-row gap-4 items-stretch"
                     >
-                      {/* Eval Name (like a search result title) */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          className="text-xl sm:text-2xl font-medium text-gray-900 group-hover:underline cursor-pointer"
-                          onClick={() => router.push(`/configure?eval_id=${row.id}`)}
-                          onKeyPress={e => { if (e.key === 'Enter') router.push(`/configure?eval_id=${row.id}`); }}
+                      {/* Upvote column */}
+                      <div className="flex flex-col items-center justify-center mr-4 select-none">
+                        <button
+                          className={`flex flex-col items-center group/upvote focus:outline-none ${upvote.loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          style={{ minWidth: 36 }}
+                          disabled={upvote.loading || !user}
+                          onClick={e => { e.stopPropagation(); handleUpvote(row.id); }}
+                          title={user ? (upvote.hasUpvoted ? 'Remove upvote' : 'Upvote') : 'Login to upvote'}
+                          aria-label={user ? (upvote.hasUpvoted ? 'Remove upvote' : 'Upvote') : 'Login to upvote'}
                         >
-                          {evalName}
-                        </span>
-                        <span className="ml-2 text-xs text-gray-400 bg-gray-100 rounded px-2 py-0.5">by {createdBy}</span>
+                          <ChevronUp
+                            size={28}
+                            strokeWidth={2.5}
+                            className={`transition-colors duration-150 ${upvote.hasUpvoted ? 'text-blue-600 fill-blue-100' : 'text-gray-400 group-hover/upvote:text-blue-400'} ${upvote.loading ? 'opacity-50' : ''}`}
+                            fill={upvote.hasUpvoted ? '#2563eb' : 'none'}
+                          />
+                          <span className={`text-lg font-semibold mt-0 ${upvote.hasUpvoted ? 'text-blue-700' : 'text-gray-500'}`}>{upvote.count}</span>
+                        </button>
                       </div>
-                      {/* Prompt */}
-                      <div className="text-gray-700 text-base sm:text-lg mt-0.5">
-                        <span className="font-mono bg-gray-50 rounded px-2 py-1 text-gray-700 shadow-inner">{row.prompt}</span>
-                      </div>
-                      {/* Best, Worst, Trials */}
-                      <div className="flex flex-wrap items-center gap-6 mt-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-500">Best:</span>
-                          <img src={winnerIcon} alt={winner} className="w-7 h-7 rounded border border-gray-200 shadow-sm object-contain bg-white" />
-                          <span className="font-semibold text-gray-800">{winner}</span>
-                          <span className="ml-2 text-green-700 font-bold">{topPct}%</span>
+                      {/* Main content */}
+                      <div className="flex-1 flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            className="text-xl sm:text-2xl font-medium text-gray-900 group-hover:underline cursor-pointer"
+                            onClick={() => router.push(`/configure?eval_id=${row.id}`)}
+                            onKeyPress={e => { if (e.key === 'Enter') router.push(`/configure?eval_id=${row.id}`); }}
+                          >
+                            {evalName}
+                          </span>
+                          <span className="ml-2 text-xs text-gray-400 bg-gray-100 rounded px-2 py-0.5">by {createdBy}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-500">Worst:</span>
-                          <img src={loserIcon} alt={loser} className="w-7 h-7 rounded border border-gray-200 shadow-sm object-contain bg-white" />
-                          <span className="font-semibold text-gray-800">{loser}</span>
-                          <span className="ml-2 text-red-700 font-bold">{lowPct}%</span>
+                        {/* Prompt */}
+                        <div className="text-gray-700 text-base sm:text-lg mt-0.5">
+                          <span className="font-mono bg-gray-50 rounded px-2 py-1 text-gray-700 shadow-inner">{row.prompt}</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-500">Trials:</span>
-                          <span className="font-semibold text-gray-800">{row.trials}</span>
+                        {/* Best, Worst, Trials */}
+                        <div className="flex flex-wrap items-center gap-6 mt-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500">Best:</span>
+                            <img src={winnerIcon} alt={winner} className="w-7 h-7 rounded border border-gray-200 shadow-sm object-contain bg-white" />
+                            <span className="font-semibold text-gray-800">{winner}</span>
+                            <span className="ml-2 text-green-700 font-bold">{topPct}%</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500">Worst:</span>
+                            <img src={loserIcon} alt={loser} className="w-7 h-7 rounded border border-gray-200 shadow-sm object-contain bg-white" />
+                            <span className="font-semibold text-gray-800">{loser}</span>
+                            <span className="ml-2 text-red-700 font-bold">{lowPct}%</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-500">Trials:</span>
+                            <span className="font-semibold text-gray-800">{row.trials}</span>
+                          </div>
                         </div>
                       </div>
                     </motion.div>
