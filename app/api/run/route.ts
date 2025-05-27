@@ -26,7 +26,6 @@ async function getCompletion(model: string, prompt: string, openrouterToken: str
     })
   });
   const rawText = await response.text();
-  console.log('OpenRouter raw response:', rawText);
   let data;
   try {
     data = JSON.parse(rawText);
@@ -47,12 +46,13 @@ You are an evaluation assistant. Given the following response and evaluation ins
 - "explanation": a brief explanation for the score (1-2 sentences)
 - "score": an integer from 0 to 100
 
-Instructions: "${evalPrompt}"
+Original prompt: ${prompt}
+AI's response: ${completion}
 
-Response: ${completion}
+I want you to score the response 0-100 using your best judgement about the intended meaning of these evaluation instructions: "${evalPrompt}"
 
 Return ONLY valid JSON in this format:
-{"explanation": "...", "score": 42}
+{"explanation": "...", "score": 50}
 `;
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -81,6 +81,7 @@ Return ONLY valid JSON in this format:
   }
 
   let content = data.choices[0].message.content.trim();
+  console.log(content);
 
   // Try to parse JSON
   let parsed;
@@ -124,7 +125,7 @@ async function getScore(model: string, evalPrompt: string, prompt: string, compl
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { models, prompt, evalPrompt, title } = body;
+    const { models, prompt, evalPrompt, title, trials: requestedTrials } = body;
     const authHeader = request.headers.get('Authorization');
     if (!authHeader) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -179,7 +180,10 @@ export async function POST(request: Request) {
         // Helper to process a single model
         const processModel = async (model: string, idx: number) => {
           try {
-            const numTrials = 5;
+            // Use requestedTrials, but cap at 5 if not using user token
+            const numTrials = useUserToken
+              ? Math.max(1, Math.min(Number(requestedTrials) || 5, 10))
+              : Math.max(1, Math.min(Number(requestedTrials) || 5, 5));
             let scores: number[] = [];
             let completions: string[] = [];
             let completionObjs: { answer: string, score: number }[] = [];

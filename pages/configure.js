@@ -6,6 +6,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { createClient } from '@supabase/supabase-js';
+import { useUser } from "../context/UserContext";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -13,6 +14,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function Configure() {
   const router = useRouter();
+  const { user } = useUser();
 
   const [prompt, setPrompt] = useState('');
   const [evalPrompt, setEvalPrompt] = useState('');
@@ -30,39 +32,65 @@ export default function Configure() {
   const [credits, setCredits] = useState(3);
   const [creditError, setCreditError] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [modelSelectOpen, setModelSelectOpen] = useState(false);
+  const [modelSelectError, setModelSelectError] = useState("");
 
-  const [results, setResults] = useState([
+  // Model list and icons
+  const defaultModels = [
     {
       model: "openai/gpt-4o-mini",
-      icon: "https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg",
-      trials: 0,
-      score: 0
+      icon: "https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg"
     },
     {
       model: "google/gemini-2.5-flash-preview-05-20",
-      icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png",
-      trials: 0,
-      score: 0
+      icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png"
     },
     {
       model: "anthropic/claude-3.5-haiku",
-      icon: "https://openrouter.ai/images/icons/Anthropic.svg",
-      trials: 0,
-      score: 0
+      icon: "https://openrouter.ai/images/icons/Anthropic.svg"
     },
     {
       model: "x-ai/grok-3-mini-beta",
-      icon: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s",
-      trials: 0,
-      score: 0
+      icon: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s"
     },
     {
       model: "meta-llama/llama-3.3-70b-instruct",
-      icon: "https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp",
-      trials: 0,
-      score: 0
+      icon: "https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp"
     }
-  ]);
+  ];
+
+  // Add extra models (require OpenRouter token)
+  const extraModels = [
+    {
+      model: "anthropic/claude-sonnet-4",
+      icon: "https://openrouter.ai/images/icons/Anthropic.svg",
+      requiresToken: true
+    },
+    {
+      model: "google/gemini-2.5-pro-preview",
+      icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png",
+      requiresToken: true
+    },
+    {
+      model: "openai/chatgpt-4o-latest",
+      icon: "https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg",
+      requiresToken: true
+    },
+    {
+      model: "perplexity/r1-1776",
+      icon: "https://logosandtypes.com/wp-content/uploads/2025/02/Deepseek.png",
+      requiresToken: true
+    },
+    {
+      model: "x-ai/grok-3-beta",
+      icon: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s",
+      requiresToken: true
+    }
+  ];
+
+  const [models, setModels] = useState([...defaultModels]);
+  const [results, setResults] = useState(models.map(m => ({ ...m, trials: 0, score: 0 })));
+  const [trials, setTrials] = useState(5);
 
   useEffect(() => {
     async function checkAuth() {
@@ -86,17 +114,18 @@ export default function Configure() {
           setEvalPrompt(evalRow.eval_prompt || '');
           setTitle(evalRow.title || '');
           setIsPublic(!!evalRow.is_public);
+          // Set models from evalRow.models if present
+          if (evalRow.models && Array.isArray(evalRow.models)) {
+            // Map to model/icon objects
+            const modelIconsMap = Object.fromEntries(defaultModels.map(m => [m.model, m.icon]));
+            const loadedModels = evalRow.models.map(model => ({ model, icon: modelIconsMap[model] || '' }));
+            setModels(loadedModels);
+            setResults(loadedModels.map(m => ({ ...m, trials: 0, score: 0 })));
+          }
           // Fetch results
           const { data: evalResults, error: resultsError } = await supabase.from('eval_results').select('*').eq('eval_id', evalIdParam);
           if (!resultsError && evalResults) {
-            // Map results to the right format for the table
-            const modelIconsMap = {
-              'openai/gpt-4o-mini': 'https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg',
-              'google/gemini-2.5-flash-preview-05-20': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png',
-              'anthropic/claude-3.5-haiku': 'https://openrouter.ai/images/icons/Anthropic.svg',
-              'x-ai/grok-3-mini-beta': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s',
-              'meta-llama/llama-3.3-70b-instruct': 'https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp',
-            };
+            const modelIconsMap = Object.fromEntries(defaultModels.map(m => [m.model, m.icon]));
             const mappedResults = (evalRow.models || []).map(model => {
               const found = evalResults.find(r => r.model === model);
               return {
@@ -184,14 +213,19 @@ export default function Configure() {
     // Optionally debounce updateTitle here for live updates
   };
 
+  // Keep results in sync with models
+  useEffect(() => {
+    setResults(models.map(m => ({ ...m, trials: 0, score: 0 })));
+  }, [models]);
+
   const handleRun = async (customTitle) => {
-    if (credits <= 0) {
+    if (credits <= 0 && !(user && user.user_metadata && user.user_metadata.openrouter_token)) {
       setCreditError("You are out of credits. Please contact support or wait for more.");
       return;
     } else {
       setCreditError("");
     }
-    setResults(results.map(r => ({ ...r, trials: 0, score: 0 })));
+    setResults(models.map(r => ({ ...r, trials: 0, score: 0 })));
     hasScrolledRef.current = false;
     setEvalId(null); // Reset before new run
     const response = await fetch('/api/run', {
@@ -201,10 +235,11 @@ export default function Configure() {
         'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
       },
       body: JSON.stringify({
-        models: results.map(r => r.model),
+        models: models.map(r => r.model),
         prompt,
         evalPrompt,
-        title: customTitle || title
+        title: customTitle || title,
+        trials
       })
     });
     if (!response.body) return;
@@ -246,20 +281,53 @@ export default function Configure() {
       </Head>
       <CustomNavbar />
 
-      <div className="flex-1 flex items-center justify-center px-12 sm:px-0" style={{ minHeight: '95vh' }}>
+      <div className="flex-1 flex items-center justify-center px-12 sm:px-0" style={{ minHeight: '100vh' }}>
         <div className="w-full max-w-xl mx-auto">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">Create an eval</h1>
+          {/* <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-8 text-center">Create eval</h1> */}
           {/* <p className="text-base text-gray-500 mb-10">Describe what to evaluate</p> */}
 
           <div className="space-y-8">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Models</label>
-              <div className="flex flex-wrap gap-0">
-                <img src="https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg" className="w-7 h-7 border rounded-lg object-contain" />
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png" className="w-7 h-7 border rounded-lg object-contain p-1" />
-                <img src="https://openrouter.ai/images/icons/Anthropic.svg" className="w-7 h-7 border rounded-lg object-contain" />
-                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s" className="w-7 h-7 border rounded-lg object-contain" />
-                <img src="https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp" className="w-7 h-7 border rounded-lg object-contain" />
+              <div className="grid grid-cols-2 gap-x-6 gap-y-0">
+                {models.map((m, idx) => (
+                  <div
+                    key={m.model}
+                    className="flex items-center space-x-2 group relative cursor-pointer"
+                    onClick={() => {
+                      setModels(models => models.filter((_, i) => i !== idx));
+                    }}
+                  >
+                    <div className="relative w-7 h-7 flex items-center justify-center">
+                      <img
+                        src={m.icon}
+                        className={`w-7 h-7 border rounded-lg object-contain transition-opacity duration-200 group-hover:opacity-0 ${m.model === "google/gemini-2.5-flash-preview-05-20" ? 'p-1' : ''}`}
+                        alt={m.model}
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-white z-10"
+                        aria-label="Remove model"
+                        style={{ fontSize: 20, color: '#ef4444', fontWeight: 'bold', background: 'none', border: 'none', cursor: 'pointer' }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <span className="text-gray-800 font-medium text-sm line-clamp-1">{m.model}</span>
+                  </div>
+                ))}
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    type="button"
+                    className="mt-1 w-6 h-6 flex items-center justify-center border rounded-lg bg-gray-50 hover:bg-gray-100 transition"
+                    aria-label="Add new model"
+                    onClick={() => {
+                      setModelSelectOpen(true);
+                    }}
+                  >
+                    <Plus className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
               </div>
             </div>
             <div>
@@ -285,15 +353,40 @@ export default function Configure() {
             </div>
           </div>
 
+          <div className="flex flex-col gap-1 mt-8">
+            <label className="block text-sm font-medium text-gray-700 mr-3">Trials</label>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-gray-100 transition text-lg font-bold"
+                aria-label="Decrease trials"
+                onClick={() => setTrials(prev => Math.max(1, (typeof prev === "number" ? prev : 5) - 1))}
+                disabled={typeof trials === "number" ? trials <= 1 : false}
+              >
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M7 12h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+              </button>
+              <span className="w-8 text-center text-base font-semibold">{typeof trials === "number" ? trials : 5}</span>
+              <button
+                type="button"
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-gray-100 transition text-lg font-bold"
+                aria-label="Increase trials"
+                onClick={() => setTrials(prev => Math.min(10, (typeof prev === "number" ? prev : 5) + 1))}
+                disabled={typeof trials === "number" ? trials >= 10 : false}
+              >
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M12 7v10M7 12h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+              </button>
+            </div>
+          </div>
+
           <div className="mt-8">
             {creditError && (
               <div className="mb-2 text-red-600 font-semibold text-center">{creditError}</div>
             )}
             <button
-              disabled={!prompt || !evalPrompt || credits <= 0}
+              disabled={!prompt || !evalPrompt || (credits <= 0 && !(user && user.user_metadata && user.user_metadata.openrouter_token))}
               onClick={() => handleRun(title)}
               className={`w-full py-3 rounded-lg text-lg font-semibold transition-colors duration-200
-                ${!prompt || !evalPrompt || credits <= 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                ${!prompt || !evalPrompt || (credits <= 0 && !(user && user.user_metadata && user.user_metadata.openrouter_token)) ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
             >
               Run
             </button>
@@ -381,7 +474,7 @@ export default function Configure() {
                     <td className="px-2 sm:px-8 py-3 sm:py-5">
                       <span className="flex items-center gap-1 sm:gap-2">
                         {row.trials}
-                        {row.trials < 5 && (
+                        {row.trials < trials && (
                           <svg className="animate-spin ml-1 text-gray-400" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
@@ -490,9 +583,9 @@ export default function Configure() {
                       </span>
                       <span className="flex items-center gap-1 text-[10px] text-gray-500 font-medium ml-2">
                         <span className="bg-gray-100 rounded px-1 py-0.5">
-                          {row.trials}/5
+                          {row.trials}/{trials}
                         </span>
-                        {row.trials < 5 && row.trials > 0 && (
+                        {row.trials < trials && row.trials > 0 && (
                           <svg className="animate-spin ml-1 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
@@ -509,7 +602,7 @@ export default function Configure() {
                       setModalModel(row.model);
                       setModalOpen(true);
                       // Use completions from state if trials < 5, else fetch from Supabase
-                      if (row.trials < 5 && row.completions) {
+                      if (row.trials < trials && row.completions) {
                         setModalCompletions(row.completions);
                       } else {
                         // Fetch completions from Supabase
@@ -620,6 +713,51 @@ export default function Configure() {
                   </li>
                 ))
               )}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Model select modal */}
+      {modelSelectOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 px-2 sm:px-0">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-4 relative">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-2xl font-bold"
+              onClick={() => setModelSelectOpen(false)}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <h2 className="text-lg font-bold mb-4">Add a Model</h2>
+            {modelSelectError && (
+              <div className="mb-2 text-red-600 font-semibold text-center">{modelSelectError}</div>
+            )}
+            <ul className="space-y-2 max-h-80 overflow-y-auto">
+              {[
+                ...defaultModels.map(m => ({ ...m, requiresToken: false })),
+                ...extraModels
+              ]
+                .filter(m => !models.some(sel => sel.model === m.model))
+                .map((m, i) => (
+                  <li key={m.model} className="flex items-center gap-3 p-2 rounded hover:bg-blue-50 cursor-pointer"
+                    onClick={() => {
+                      if (m.requiresToken && !(user && user.user_metadata && user.user_metadata.openrouter_token)) {
+                        setModelSelectError("This model requires your OpenRouter token. Set it up in your account settings.");
+                        return;
+                      }
+                      setModels(models => [...models, { model: m.model, icon: m.icon }]);
+                      setModelSelectOpen(false);
+                      setModelSelectError("");
+                    }}
+                  >
+                    <img src={m.icon} alt={m.model} className="w-7 h-7 rounded border object-contain" />
+                    <span className="font-medium text-gray-800 text-sm line-clamp-1">{m.model}</span>
+                    {m.requiresToken && !(user && user.user_metadata && user.user_metadata.openrouter_token) && (
+                      <span className="ml-auto text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 border border-yellow-300 line-clamp-1">Requires OpenRouter token</span>
+                    )}
+                  </li>
+                ))}
             </ul>
           </div>
         </div>
