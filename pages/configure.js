@@ -254,7 +254,7 @@ export default function Configure() {
           <div className="space-y-8">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Models</label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-0">
                 <img src="https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg" className="w-7 h-7 border rounded-lg object-contain" />
                 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png" className="w-7 h-7 border rounded-lg object-contain p-1" />
                 <img src="https://openrouter.ai/images/icons/Anthropic.svg" className="w-7 h-7 border rounded-lg object-contain" />
@@ -279,7 +279,7 @@ export default function Configure() {
                 ref={evalPromptRef}
                 value={evalPrompt}
                 onChange={(e) => setEvalPrompt(e.target.value)}
-                placeholder="eg. (three r's = 1, else = 0)"
+                placeholder="eg. (three r's = 100, else = 0)"
                 className="w-full h-24 px-3 sm:px-4 py-3 text-base rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 bg-white text-gray-900 placeholder-gray-400 transition"
               />
             </div>

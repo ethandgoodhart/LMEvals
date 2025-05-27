@@ -10,11 +10,11 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Helper to get a completion from OpenRouter
-async function getCompletion(model: string, prompt: string): Promise<string> {
+async function getCompletion(model: string, prompt: string, openrouterToken: string): Promise<string> {
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      'Authorization': `Bearer ${openrouterToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
@@ -40,7 +40,7 @@ async function getCompletion(model: string, prompt: string): Promise<string> {
 }
 
 // Helper to score a completion using the evalPrompt
-async function scoreCompletion(model: string, evalPrompt: string, prompt: string, completion: string): Promise<number> {
+async function scoreCompletion(model: string, evalPrompt: string, prompt: string, completion: string, openrouterToken: string): Promise<number> {
   // Compose the evaluation message for JSON mode
   const evalMessage = `
 You are an evaluation assistant. Given the following response and evaluation instructions, return a JSON object with two keys:
@@ -58,7 +58,7 @@ Return ONLY valid JSON in this format:
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      'Authorization': `Bearer ${openrouterToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
@@ -112,9 +112,9 @@ Return ONLY valid JSON in this format:
 }
 
 // Optionally, run multiple trials for robustness
-async function getScore(model: string, evalPrompt: string, prompt: string, completion: string): Promise<number> {
+async function getScore(model: string, evalPrompt: string, prompt: string, completion: string, openrouterToken: string): Promise<number> {
   try {
-    const score = await scoreCompletion(model, evalPrompt, prompt, completion);
+    const score = await scoreCompletion(model, evalPrompt, prompt, completion, openrouterToken);
     return Number((score / 100).toFixed(2));
   } catch (e) {
     return -1;
@@ -134,17 +134,22 @@ export async function POST(request: Request) {
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    // Check credits in user_metadata
+    // Check for user OpenRouter token in metadata
+    const userOpenRouterToken = user.user_metadata && user.user_metadata.openrouter_token;
+    const useUserToken = !!userOpenRouterToken;
+    // If using user token, credits are infinite
     let credits = (user.user_metadata && typeof user.user_metadata.credits === 'number') ? user.user_metadata.credits : 3;
-    if (credits <= 0) {
-      return NextResponse.json({ error: 'You are out of credits. Please contact support or wait for more.' }, { status: 403 });
-    }
-    // Decrement credits and update user_metadata
-    const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
-      user_metadata: { ...user.user_metadata, credits: credits - 1 }
-    });
-    if (updateError) {
-      return NextResponse.json({ error: 'Failed to update credits.' }, { status: 500 });
+    if (!useUserToken) {
+      if (credits <= 0) {
+        return NextResponse.json({ error: 'You are out of credits. Please contact support or wait for more.' }, { status: 403 });
+      }
+      // Decrement credits and update user_metadata
+      const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
+        user_metadata: { ...user.user_metadata, credits: credits - 1 }
+      });
+      if (updateError) {
+        return NextResponse.json({ error: 'Failed to update credits.' }, { status: 500 });
+      }
     }
     // Save eval to supabase
     // Get email prefix for author
@@ -179,8 +184,8 @@ export async function POST(request: Request) {
             let completions: string[] = [];
             let completionObjs: { answer: string, score: number }[] = [];
             for (let i = 0; i < numTrials; i++) {
-              const completion = await getCompletion(model, prompt);
-              const score = await getScore(model, evalPrompt, prompt, completion);
+              const completion = await getCompletion(model, prompt, useUserToken ? userOpenRouterToken : process.env.OPENROUTER_API_KEY!);
+              const score = await getScore(model, evalPrompt, prompt, completion, useUserToken ? userOpenRouterToken : process.env.OPENROUTER_API_KEY!);
               scores.push(score);
               completions.push(completion);
               completionObjs.push({ answer: completion, score });

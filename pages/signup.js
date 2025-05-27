@@ -21,7 +21,7 @@ export default function Signup() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.signUp({ email, password }, { redirectTo: 'https://lmevals.org/configure' });
+    const { error } = await supabase.auth.signUp({ email, password }, { redirectTo: '/configure' });
     setLoading(false);
     if (error) {
       setError(error.message);
@@ -33,7 +33,7 @@ export default function Signup() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError('');
-    const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: 'https://lmevals.org/configure' } });
+    const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: '/configure' } });
     if (data?.session) {
       Cookies.set('sb-access-token', data.session.access_token, { path: '/' });
       Cookies.set('sb-refresh-token', data.session.refresh_token, { path: '/' });

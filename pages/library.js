@@ -19,6 +19,73 @@ const modelIcons = {
   'deepseek/deepseek-chat-v3-0324': 'https://logosandtypes.com/wp-content/uploads/2025/02/Deepseek.png'
 };
 
+function OpenRouterTokenField({ user }) {
+  const [input, setInput] = useState(user?.user_metadata?.openrouter_token || "");
+  const [status, setStatus] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setInput(user?.user_metadata?.openrouter_token || "");
+  }, [user]);
+
+  const saveToken = async () => {
+    setSaving(true);
+    setStatus("");
+    const { error } = await supabase.auth.updateUser({
+      data: { ...user.user_metadata, openrouter_token: input }
+    });
+    setSaving(false);
+    setStatus(error ? "Failed to save token." : "Token saved!");
+    if (!error) window.location.reload();
+  };
+
+  const removeToken = async () => {
+    setSaving(true);
+    setStatus("");
+    const { error } = await supabase.auth.updateUser({
+      data: { ...user.user_metadata, openrouter_token: null }
+    });
+    setSaving(false);
+    setStatus(error ? "Failed to remove token." : "Token removed!");
+    if (!error) window.location.reload();
+  };
+
+  return (
+    <div className="flex flex-col gap-2 mt-2">
+      <label className="text-sm font-medium text-gray-700">
+        OpenRouter API Key (for unlimited credits):
+      </label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          className="border rounded px-2 py-1 flex-1"
+          placeholder="sk-or-..."
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          disabled={saving}
+        />
+        <button
+          className="px-3 py-1 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+          onClick={saveToken}
+          disabled={saving || !input}
+        >
+          Save
+        </button>
+        {user?.user_metadata?.openrouter_token && (
+          <button
+            className="px-3 py-1 rounded bg-gray-300 text-gray-700 font-semibold hover:bg-gray-400 transition"
+            onClick={removeToken}
+            disabled={saving}
+          >
+            Remove
+          </button>
+        )}
+      </div>
+      {status && <span className="text-xs text-gray-500">{status}</span>}
+    </div>
+  );
+}
+
 export default function Library() {
   const router = useRouter();
   const { user } = useUser();
@@ -28,6 +95,7 @@ export default function Library() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [toDelete, setToDelete] = useState(null);
   const [toggleLoading, setToggleLoading] = useState({});
+  const [showTokenField, setShowTokenField] = useState(false);
 
   useEffect(() => {
     async function checkAuth() {
@@ -112,61 +180,100 @@ export default function Library() {
         <title>LMEvals</title>
       </Head>
       <CustomNavbar />
-      
-      <div className="flex-1 flex flex-col items-center px-4 py-16 mt-28">
-        <div className="w-full max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 px-2">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                {user && (user.user_metadata?.avatar_url || user.email) ? (
-                  <img
-                    src={user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.email?.[0] || "U")}`}
-                    className="w-14 h-14 rounded-full shadow-lg object-cover bg-gray-100"
-                    alt={user.user_metadata?.full_name || user.email || "User"}
-                    onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.email?.[0] || "U")}`; }}
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-full shadow-lg bg-gray-200 flex items-center justify-center text-2xl font-bold text-gray-600">
-                    {user && user.email ? user.email[0].toUpperCase() : "U"}
-                  </div>
-                )}
-                <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-400 border-2 border-white rounded-full shadow-sm" title="Online"></span>
+      {/* User Info Card Header */}
+      <div className="w-full flex justify-center mt-44 px-2">
+        <div className="w-full max-w-7xl rounded-2xl  flex flex-col sm:flex-row items-center gap-6 px-8 py-7 relative">
+          {/* Avatar */}
+          <div className="relative flex-shrink-0">
+            {user && (user.user_metadata?.avatar_url || user.email) ? (
+              <img
+                src={user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.email?.[0] || "U")}`}
+                className="w-20 h-20 rounded-full border-0 border-white shadow-lg object-cover bg-gray-100"
+                alt={user.user_metadata?.full_name || user.email || "User"}
+                onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.email?.[0] || "U")}`; }}
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full border-4 border-white shadow-lg bg-gray-200 flex items-center justify-center text-3xl font-bold text-gray-600">
+                {user && user.email ? user.email[0].toUpperCase() : "U"}
               </div>
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 leading-tight flex items-center gap-2">
-                  {user && (user.user_metadata?.full_name || user.email) ? (user.user_metadata?.full_name || user.email) : "User"}
-                </h1>
-                <div className={`mt-2 text-lg sm:text-xl font-bold ${credits > 0 ? 'text-blue-700' : 'text-red-600'}`}>
-                  {credits}/3 credits
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition"
-                title="Create new eval"
-                onClick={() => router.push('/configure')}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                New Eval
-              </button>
-              <button
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white font-semibold shadow hover:bg-red-700 transition"
-                title="Logout"
-                onClick={() => {
-                  supabase.auth.signOut();
-                  router.push('/');
-                }}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                Logout
-              </button>
-            </div>
+            )}
+            <span className="absolute bottom-2 right-2 w-5 h-5 bg-green-400 border-2 border-white rounded-full shadow" title="Online"></span>
           </div>
+          {/* User Info & Credits */}
+          <div className="flex-1 flex flex-col items-center sm:items-start gap-1">
+            <div className="flex flex-col items-center sm:items-start">
+              <span className="text-2xl sm:text-3xl font-bold text-gray-900">
+                {user && (user.user_metadata?.full_name || user.email) ? (user.user_metadata?.full_name || user.email) : "User"}
+              </span>
+              {user && user.email && (
+                <span className="text-sm text-gray-400 font-medium mt-0.5">{user.email}</span>
+              )}
+            </div>
+            {/* Credits Badge */}
+            <div className="mt-3 flex items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold shadow-sm border transition-colors duration-200 ${user?.user_metadata?.openrouter_token ? 'bg-green-50 text-green-700 border-green-200' : credits > 0 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-red-50 text-red-600 border-red-200'}`}
+                title={user?.user_metadata?.openrouter_token ? 'Using your own OpenRouter token for unlimited credits' : 'You have limited free credits'}
+              >
+                {user?.user_metadata?.openrouter_token ? (
+                  <>
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                    ∞ credits
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none"/></svg>
+                    {`${credits}/3 credits`}
+                  </>
+                )}
+              </span>
+              {/* Manage API Key Button */}
+              <button
+                className="ml-2 px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold border border-gray-200 hover:bg-gray-200 transition"
+                onClick={() => setShowTokenField(v => !v)}
+                type="button"
+              >
+                {showTokenField ? 'Hide API Key' : 'Add key for unlimited credits'}
+              </button>
+            </div>
+            {/* Collapsible OpenRouter Token Field */}
+            {showTokenField && (
+              <div className="w-full mt-4 animate-fade-in">
+                <OpenRouterTokenField user={user} />
+              </div>
+            )}
+          </div>
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3 sm:gap-4 sm:ml-8 items-center sm:items-end mt-6 sm:mt-0">
+            <button
+              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition text-base"
+              title="Create new eval"
+              onClick={() => router.push('/configure')}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="inline">New Eval</span>
+            </button>
+            <button
+              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-red-50 text-red-700 font-semibold border border-red-200 hover:bg-red-100 transition text-base"
+              title="Logout"
+              onClick={() => {
+                supabase.auth.signOut();
+                router.push('/');
+              }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span className="inline">Logout</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      {/* End User Info Card Header */}
+      <div className="flex-1 flex flex-col items-center px-4 py-16">
+        <div className="w-full max-w-7xl mx-auto">
           <div className="flex items-center gap-2 mb-8 px-2">
             <span className="text-base text-gray-500">{filteredResults.length} {filteredResults.length === 1 ? "eval" : "evals"}</span>
           </div>
