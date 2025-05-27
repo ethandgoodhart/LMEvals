@@ -216,7 +216,7 @@ export default function Library() {
       </Head>
       <CustomNavbar />
       {/* User Info Card Header */}
-      <div className="w-full flex justify-center mt-32 sm:mt-44 px-2">
+      <div className="w-full flex justify-center mt-32 px-2">
         <div className="w-full max-w-7xl rounded-2xl  flex flex-col sm:flex-row items-center gap-6 px-8 py-7 relative">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
@@ -307,7 +307,7 @@ export default function Library() {
         </div>
       </div>
       {/* End User Info Card Header */}
-      <div className="flex-1 flex flex-col items-center px-4 sm:py-16">
+      <div className="flex-1 flex flex-col items-center px-4">
         <div className="w-full max-w-7xl mx-auto">
           <div className="flex items-center gap-2 mb-8 px-2">
             <span className="text-base text-gray-500">{filteredResults.length} {filteredResults.length === 1 ? "eval" : "evals"}</span>
