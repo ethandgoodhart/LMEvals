@@ -164,20 +164,6 @@ export default function Configure() {
     fetchCredits();
   }, []);
 
-  // Autoselect title input when scrolled into view
-  useEffect(() => {
-    const handleScroll = () => {
-      if (titleInputRef.current) {
-        const rect = titleInputRef.current.getBoundingClientRect();
-        if (rect.top >= 0 && rect.bottom <= window.innerHeight) {
-          titleInputRef.current.select();
-        }
-      }
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
   // Update title in Supabase
   const updateTitle = async (newTitle) => {
     if (!evalId || !newTitle) return;
@@ -268,6 +254,7 @@ export default function Configure() {
         setResults([...newResults]);
         if (resultsRef.current && !hasScrolledRef.current) {
           resultsRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+          titleInputRef.current.select();
           hasScrolledRef.current = true;
         }
       }
