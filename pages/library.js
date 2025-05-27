@@ -6,19 +6,11 @@ import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/router';
 import { useUser } from "../context/UserContext";
 import { ChevronUp } from 'lucide-react';
+import { defaultModels, extraModels, modelIconsMap } from "../constants/models";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
-
-const modelIcons = {
-  'openai/gpt-4o-mini': 'https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg',
-  'google/gemini-2.5-flash-preview-05-20': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png',
-  'anthropic/claude-3.5-haiku': 'https://openrouter.ai/images/icons/Anthropic.svg',
-  'x-ai/grok-3-mini-beta': 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s',
-  'meta-llama/llama-3.3-70b-instruct': 'https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp',
-  'deepseek/deepseek-chat-v3-0324': 'https://logosandtypes.com/wp-content/uploads/2025/02/Deepseek.png'
-};
 
 function OpenRouterTokenField({ user }) {
   const [input, setInput] = useState(user?.user_metadata?.openrouter_token || "");
@@ -143,11 +135,11 @@ export default function Library() {
             const best = results.reduce((a, b) => (a.score > b.score ? a : b));
             const worst = results.reduce((a, b) => (a.score < b.score ? a : b));
             winner = best.model;
-            winnerIcon = modelIcons[winner] || null;
+            winnerIcon = modelIconsMap[winner] || null;
             topPct = best.score;
             trials = best.trials;
             loser = worst.model;
-            loserIcon = modelIcons[loser] || null;
+            loserIcon = modelIconsMap[loser] || null;
             lowPct = worst.score;
           }
           return {

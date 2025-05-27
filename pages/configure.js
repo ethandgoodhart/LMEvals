@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { createClient } from '@supabase/supabase-js';
 import { useUser } from "../context/UserContext";
+import { defaultModels, extraModels, modelIconsMap } from "../constants/models";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -34,59 +35,6 @@ export default function Configure() {
   const [isPublic, setIsPublic] = useState(false);
   const [modelSelectOpen, setModelSelectOpen] = useState(false);
   const [modelSelectError, setModelSelectError] = useState("");
-
-  // Model list and icons
-  const defaultModels = [
-    {
-      model: "openai/gpt-4o-mini",
-      icon: "https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg"
-    },
-    {
-      model: "google/gemini-2.5-flash-preview-05-20",
-      icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png"
-    },
-    {
-      model: "anthropic/claude-3.5-haiku",
-      icon: "https://openrouter.ai/images/icons/Anthropic.svg"
-    },
-    {
-      model: "x-ai/grok-3-mini-beta",
-      icon: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s"
-    },
-    {
-      model: "meta-llama/llama-3.3-70b-instruct",
-      icon: "https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp"
-    }
-  ];
-
-  // Add extra models (require OpenRouter token)
-  const extraModels = [
-    {
-      model: "anthropic/claude-sonnet-4",
-      icon: "https://openrouter.ai/images/icons/Anthropic.svg",
-      requiresToken: true
-    },
-    {
-      model: "google/gemini-2.5-pro-preview",
-      icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Google_Favicon_2025.svg/330px-Google_Favicon_2025.svg.png",
-      requiresToken: true
-    },
-    {
-      model: "openai/chatgpt-4o-latest",
-      icon: "https://static.vecteezy.com/system/resources/previews/021/059/827/non_2x/chatgpt-logo-chat-gpt-icon-on-white-background-free-vector.jpg",
-      requiresToken: true
-    },
-    {
-      model: "perplexity/r1-1776",
-      icon: "https://logosandtypes.com/wp-content/uploads/2025/02/Deepseek.png",
-      requiresToken: true
-    },
-    {
-      model: "x-ai/grok-3-beta",
-      icon: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcROcXRdeEoeB-Kl449XzrchCvGwxDaTRltKSg&s",
-      requiresToken: true
-    }
-  ];
 
   const [models, setModels] = useState([...defaultModels]);
   const [results, setResults] = useState(models.map(m => ({ ...m, trials: 0, score: 0 })));
@@ -117,7 +65,6 @@ export default function Configure() {
           // Set models from evalRow.models if present
           if (evalRow.models && Array.isArray(evalRow.models)) {
             // Map to model/icon objects
-            const modelIconsMap = Object.fromEntries(defaultModels.map(m => [m.model, m.icon]));
             const loadedModels = evalRow.models.map(model => ({ model, icon: modelIconsMap[model] || '' }));
             setModels(loadedModels);
             setResults(loadedModels.map(m => ({ ...m, trials: 0, score: 0 })));
@@ -125,7 +72,6 @@ export default function Configure() {
           // Fetch results
           const { data: evalResults, error: resultsError } = await supabase.from('eval_results').select('*').eq('eval_id', evalIdParam);
           if (!resultsError && evalResults) {
-            const modelIconsMap = Object.fromEntries(defaultModels.map(m => [m.model, m.icon]));
             const mappedResults = (evalRow.models || []).map(model => {
               const found = evalResults.find(r => r.model === model);
               return {
