@@ -163,7 +163,7 @@ export default function Library() {
             trials
           };
         }));
-        setResults(evalsWithResults);
+        setResults(evalsWithResults.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
         fetchUpvotes(evals.map(e => e.id));
       }
     }

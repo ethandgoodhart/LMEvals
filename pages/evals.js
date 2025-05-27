@@ -94,6 +94,20 @@ export default function BrowseEvals() {
     // eslint-disable-next-line
   }, [searchTerm, user]);
 
+  // Sort results by upvotes after upvotes are fetched
+  useEffect(() => {
+    if (results.length > 0 && Object.keys(upvotes).length > 0) {
+      setResults(prevResults => {
+        return [...prevResults].sort((a, b) => {
+          const upA = upvotes[a.id]?.count || 0;
+          const upB = upvotes[b.id]?.count || 0;
+          return upB - upA;
+        });
+      });
+    }
+    // eslint-disable-next-line
+  }, [upvotes]);
+
   // Upvote toggle handler
   const handleUpvote = async (evalId) => {
     setUpvotes(prev => ({ ...prev, [evalId]: { ...prev[evalId], loading: true } }));

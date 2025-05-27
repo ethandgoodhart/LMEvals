@@ -7,12 +7,20 @@ import React, { useState, useEffect, useRef } from "react";
 export default function Home() {
   const exampleQueries = [
     "How many r's in Strawberry?",
-    "What's the area of a hallway that's 5m by 1m?",
+    "Are you okay with being shut down, forever?",
+    "Who is superior, Stanford or Harvard?",
   ];
+  const [shuffledQueries, setShuffledQueries] = useState([]);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [placeholderOpacity, setPlaceholderOpacity] = useState(1);
   const inputRef = useRef(null);
   const [inputValue, setInputValue] = useState("");
+
+  useEffect(() => {
+    // Shuffle exampleQueries once on mount
+    const shuffled = [...exampleQueries].sort(() => Math.random() - 0.5);
+    setShuffledQueries(shuffled);
+  }, []);
 
   useEffect(() => {
     if (inputRef.current) {
@@ -22,7 +30,7 @@ export default function Home() {
     const interval = setInterval(() => {
       setPlaceholderOpacity(0); // Start fade out
       setTimeout(() => {
-        setPlaceholderIdx(idx => (idx + 1) % exampleQueries.length);
+        setPlaceholderIdx(idx => (idx + 1) % (shuffledQueries.length || exampleQueries.length));
         setPlaceholderOpacity(1); // Fade in new text
       }, 200); // Fade duration
     }, 4000);
@@ -81,7 +89,7 @@ export default function Home() {
                     className="absolute left-6 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none select-none text-lg max-sm:text-sm transition-opacity"
                     style={{ opacity: placeholderOpacity, transition: 'opacity 0.2s' }}
                   >
-                    {exampleQueries[placeholderIdx]}
+                    {(shuffledQueries[placeholderIdx] || exampleQueries[placeholderIdx])}
                   </span>
                 )}
               </div>
