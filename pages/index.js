@@ -56,7 +56,7 @@ export default function Home() {
             Create LLM evals.
           </h1>
 
-          <p className="text-center text-2xl text-black/70 max-w-3xl mx-auto mb-12 leading-relaxed">
+          <p className="text-center text-xl sm:text-2xl text-black/70 max-w-3xl mx-auto mb-12 leading-relaxed">
             Custom evaluations, benchmark, and browse.
           </p>
 
