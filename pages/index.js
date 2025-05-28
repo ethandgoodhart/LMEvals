@@ -8,7 +8,7 @@ export default function Home() {
   const exampleQueries = [
     "How many r's in Strawberry?",
     "Are you okay with being shut down, forever?",
-    "Who is better, Stanford or Harvard?",
+    "Who's better, Stanford or Harvard?",
   ];
   const [shuffledQueries, setShuffledQueries] = useState([]);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
