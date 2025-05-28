@@ -35,6 +35,8 @@ export default function RootLayout({
         <link rel="icon" href="/logo.png" type="image/png" />
         <link rel="apple-touch-icon" href="/logocard.png" />
         <meta property="og:image" content="/logocard.png" />
+        <meta property="og:title" content="LMEvals" />
+        <meta property="og:description" content="LMEvals" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
