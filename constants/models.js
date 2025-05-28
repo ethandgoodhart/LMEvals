@@ -19,10 +19,6 @@ export const defaultModels = [
   {
     model: "meta-llama/llama-3.3-70b-instruct",
     icon: "https://res.cloudinary.com/apideck/image/upload/w_196,f_auto/v1677940393/marketplaces/ckhg56iu1mkpc0b66vj7fsj3o/listings/meta_nnmll6.webp"
-  },
-  {
-    model: "deepseek/deepseek-chat-v3-0324",
-    icon: "https://logosandtypes.com/wp-content/uploads/2025/02/Deepseek.png"
   }
 ];
 
