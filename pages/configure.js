@@ -35,10 +35,11 @@ export default function Configure() {
   const [isPublic, setIsPublic] = useState(false);
   const [modelSelectOpen, setModelSelectOpen] = useState(false);
   const [modelSelectError, setModelSelectError] = useState("");
+  const [isPublished, setIsPublished] = useState(false);
 
   const [models, setModels] = useState([...defaultModels]);
   const [results, setResults] = useState(models.map(m => ({ ...m, trials: 0, score: 0 })));
-  const [trials, setTrials] = useState(5);
+  const [trials, setTrials] = useState(3);
 
   useEffect(() => {
     async function checkAuth() {
@@ -293,17 +294,17 @@ export default function Configure() {
                 type="button"
                 className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-gray-100 transition text-lg font-bold"
                 aria-label="Decrease trials"
-                onClick={() => setTrials(prev => Math.max(1, (typeof prev === "number" ? prev : 5) - 1))}
+                onClick={() => setTrials(prev => Math.max(1, (typeof prev === "number" ? prev : 3) - 1))}
                 disabled={typeof trials === "number" ? trials <= 1 : false}
               >
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M7 12h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
               </button>
-              <span className="w-8 text-center text-base font-semibold">{typeof trials === "number" ? trials : 5}</span>
+              <span className="w-8 text-center text-base font-semibold">{typeof trials === "number" ? trials : 3}</span>
               <button
                 type="button"
                 className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white hover:bg-gray-100 transition text-lg font-bold"
                 aria-label="Increase trials"
-                onClick={() => setTrials(prev => Math.min(10, (typeof prev === "number" ? prev : 5) + 1))}
+                onClick={() => setTrials(prev => Math.min(10, (typeof prev === "number" ? prev : 3) + 1))}
                 disabled={typeof trials === "number" ? trials >= 10 : false}
               >
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M12 7v10M7 12h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -573,12 +574,30 @@ export default function Configure() {
                 body: JSON.stringify({ eval_id: evalId, title, is_public: true })
               });
               setIsPublic(true);
-              alert('Your evaluation has been published and is now public on LMEvals!');
+              setIsPublished(true);
+              setTimeout(() => setIsPublished(false), 2000);
             }}
             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-base sm:text-lg font-semibold transition-all duration-200 shadow-sm
-              ${!prompt || !evalPrompt ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600'}`}
+              ${!prompt || !evalPrompt ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : isPublished ? 'bg-green-500 text-white' : 'bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600'}`}
           >
-            <ArrowRight className="w-5 h-5" /> Publish on LMEvals
+            {isPublished ? (
+              <motion.span
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1.1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex items-center gap-2"
+              >
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Published!
+              </motion.span>
+            ) : (
+              <>
+                <ArrowRight className="w-5 h-5" /> Publish on LMEvals
+              </>
+            )}
           </button>
           <button
             type="button"
