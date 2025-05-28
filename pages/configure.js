@@ -322,7 +322,7 @@ export default function Configure() {
               className={`w-full py-3 rounded-lg text-lg font-semibold transition-colors duration-200
                 ${!prompt || (credits <= 0 && !(user && user.user_metadata && user.user_metadata.openrouter_token)) ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
             >
-              Run
+              {(!prompt || (credits > 0 || (user && user.user_metadata && user.user_metadata.openrouter_token))) ? 'Run' : '0 credits left'}
             </button>
           </div>
         </div>
