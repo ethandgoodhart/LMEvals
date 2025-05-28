@@ -317,10 +317,10 @@ export default function Configure() {
               <div className="mb-2 text-red-600 font-semibold text-center">{creditError}</div>
             )}
             <button
-              disabled={!prompt || !evalPrompt || (credits <= 0 && !(user && user.user_metadata && user.user_metadata.openrouter_token))}
+              disabled={!prompt || (credits <= 0 && !(user && user.user_metadata && user.user_metadata.openrouter_token))}
               onClick={() => handleRun(title)}
               className={`w-full py-3 rounded-lg text-lg font-semibold transition-colors duration-200
-                ${!prompt || !evalPrompt || (credits <= 0 && !(user && user.user_metadata && user.user_metadata.openrouter_token)) ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                ${!prompt || (credits <= 0 && !(user && user.user_metadata && user.user_metadata.openrouter_token)) ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
             >
               Run
             </button>
@@ -367,7 +367,9 @@ export default function Configure() {
                 <th className="px-2 sm:px-8 py-3 sm:py-5 text-left text-xs sm:text-sm font-normal text-gray-500">Model</th>
                 <th className="px-2 sm:px-8 py-3 sm:py-5 text-left text-xs sm:text-sm font-normal text-gray-500">Prompt</th>
                 <th className="px-2 sm:px-8 py-3 sm:py-5 text-left text-xs sm:text-sm font-normal text-gray-500">Trials</th>
-                <th className="px-2 sm:px-8 py-3 sm:py-5 text-left text-xs sm:text-sm font-normal text-gray-500">Score</th>
+                {evalPrompt && (
+                  <th className="px-2 sm:px-8 py-3 sm:py-5 text-left text-xs sm:text-sm font-normal text-gray-500">Score</th>
+                )}
                 <th className="px-2 sm:px-8 py-3 sm:py-5 text-left text-xs sm:text-sm font-normal text-gray-500"></th>
               </tr>
             </thead>
@@ -416,21 +418,23 @@ export default function Configure() {
                         )}
                       </span>
                     </td>
-                    <td className="px-2 sm:px-8 py-3 sm:py-5">
-                      <div className="flex items-center gap-1 sm:gap-2">
-                        <span
-                          className={`ml-1 mr-1 font-bold text-xs sm:text-base ${
-                            row.score >= 0.7
-                              ? "text-green-600"
-                              : row.score >= 0.4
-                              ? "text-yellow-600"
-                              : "text-red-500"
-                          }`}
-                        >
-                          {(row.score * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                    </td>
+                    {evalPrompt && (
+                      <td className="px-2 sm:px-8 py-3 sm:py-5">
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <span
+                            className={`ml-1 mr-1 font-bold text-xs sm:text-base ${
+                              row.score >= 0.7
+                                ? "text-green-600"
+                                : row.score >= 0.4
+                                ? "text-yellow-600"
+                                : "text-red-500"
+                            }`}
+                          >
+                            {(row.score * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      </td>
+                    )}
                     <td className="px-2 sm:px-8 py-3 sm:py-5">
                       <button
                         className={`bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-2 sm:py-3 w-24 sm:w-32 text-xs sm:text-sm rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed`}
@@ -493,19 +497,21 @@ export default function Configure() {
                   <div className="flex flex-col flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-gray-800 text-xs truncate">{row.model}</span>
-                      <span
-                        className={`font-bold text-xs ${
-                          row.trials === 0
-                            ? "text-gray-400"
-                            : row.score >= 0.7
-                            ? "text-green-600"
-                            : row.score >= 0.4
-                            ? "text-yellow-600"
-                            : "text-red-500"
-                        }`}
-                      >
-                        {row.trials === 0 ? "--" : `${(row.score * 100).toFixed(0)}%`}
-                      </span>
+                      {evalPrompt ? (
+                        <span
+                          className={`font-bold text-xs ${
+                            row.trials === 0
+                              ? "text-gray-400"
+                              : row.score >= 0.7
+                              ? "text-green-600"
+                              : row.score >= 0.4
+                              ? "text-yellow-600"
+                              : "text-red-500"
+                          }`}
+                        >
+                          {row.trials === 0 ? "--" : `${(row.score * 100).toFixed(0)}%`}
+                        </span>
+                      ) : null}
                     </div>
                     <div className="flex items-center justify-between mt-1">
                       <span

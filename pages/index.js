@@ -131,14 +131,11 @@ export default function Home() {
       <footer className="relative border-t border-black/5 bg-white">
         <div className="max-w-7xl mx-auto py-12 px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="flex items-center">
+            <div className="flex flex-col">
               <span className="text-black/70 text-sm">© 2025 LMEvals. All rights reserved.</span>
             </div>
             <nav className="flex items-center space-x-8">
-              <a href="#" className="text-black/70 hover:text-black text-sm transition-colors duration-200">About</a>
-              <a href="#" className="text-black/70 hover:text-black text-sm transition-colors duration-200">Contact</a>
-              <a href="#" className="text-black/70 hover:text-black text-sm transition-colors duration-200">Privacy</a>
-              <a href="#" className="text-black/70 hover:text-black text-sm transition-colors duration-200">Terms</a>
+              <a href="/terms" className="text-black/70 hover:text-black text-sm transition-colors duration-200">Terms</a>
             </nav>
           </div>
         </div>
